@@ -357,8 +357,9 @@ nav {
     <div class="lb-notes-wrap">
       <input class="lb-notes" id="lbNotes" placeholder="add a note…" type="text">
     </div>
-    <div style="display:flex;gap:10px;align-items:center;padding:0 24px;margin-top:12px;">
+    <div style="display:flex;gap:10px;align-items:center;padding:0 24px;margin-top:12px;flex-wrap:wrap;">
     <button class="lb-board-btn" onclick="openBoardPicker()" style="margin:0;">+ Add to board</button>
+    <button class="lb-board-btn" onclick="recropFromLb()" style="margin:0;">Recrop</button>
     <button class="lb-delete-btn" onclick="deleteFromLb()" style="margin-left:auto;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;background:none;border:1px solid #fdd;color:#c00;padding:6px 14px;cursor:pointer;font-family:var(--f);transition:all 0.15s;" onmouseover="this.style.background='#fdd'" onmouseout="this.style.background='none'">Delete photo</button>
   </div>
     <div class="lb-section" id="lbSetSection" style="display:none">
@@ -1497,6 +1498,96 @@ function deleteFromLb() {
     renderGrid();
   };
   document.getElementById('confirmModal').classList.add('open');
+}
+
+// RECROP from lightbox
+function recropFromLb() {
+  if (!currentId) return;
+  var post = getAllPosts().find(function(p) { return p.id === currentId; });
+  if (!post) return;
+  var imgUrl = post.image;
+  var isSeed = SEED_POSTS.some(function(p) { return p.id === currentId; });
+  var postId = currentId;
+
+  // Fetch the image as a blob so we can run crop analysis on it
+  var statusEl = document.querySelector('.lb-notes');
+  fetch(imgUrl).then(function(r) { return r.blob(); }).then(function(blob) {
+    var file = new File([blob], postId + '.jpg', { type: blob.type || 'image/jpeg' });
+
+    analyseScreenshot(file).then(function(item) {
+      // Override: always show crop UI even if algorithm says skip
+      item.skip = false;
+      if (item.top === 0 && item.bottom === item.h) {
+        // No chrome detected — still show UI starting from 0/100%
+      }
+
+      // Queue just this one image through the crop preview
+      cropQueue = [item];
+      cropResolveQueue = [function(croppedFile) {
+        // Re-upload the cropped file
+        fileToB64(croppedFile).then(function(b64) {
+          var token = getGhToken();
+          var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
+          var ghPath = 'images/' + postId + '.' + ext;
+
+          if (isSeed && token) {
+            // Seed post: push to GitHub (need SHA first)
+            fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+              headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+            }).then(function(r) { return r.json(); }).then(function(meta) {
+              return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+                method: 'PUT',
+                headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
+              });
+            }).then(function(r) {
+              if (r.ok) {
+                // Update lightbox image (bust cache with timestamp)
+                document.getElementById('lbImg').src = imgUrl + '?t=' + Date.now();
+                renderGrid();
+              }
+            }).catch(function(e) { console.warn('recrop push failed', e); });
+          } else {
+            // User upload: update in localStorage
+            var uploads = getUploads();
+            var idx = uploads.findIndex(function(p) { return p.id === postId; });
+            if (idx >= 0) {
+              // Store as dataURL in image field if no GitHub token
+              if (!token) {
+                var reader = new FileReader();
+                reader.onload = function() {
+                  uploads[idx].image = reader.result;
+                  saveUploads(uploads);
+                  document.getElementById('lbImg').src = reader.result;
+                  renderGrid();
+                };
+                reader.readAsDataURL(croppedFile);
+              } else {
+                // Has token — push to GitHub
+                fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+                  headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+                }).then(function(r) { return r.json(); }).then(function(meta) {
+                  return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+                    method: 'PUT',
+                    headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
+                  });
+                }).then(function() {
+                  document.getElementById('lbImg').src = imgUrl + '?t=' + Date.now();
+                  renderGrid();
+                });
+              }
+            }
+          }
+        });
+      }];
+      cropQueueIndex = 0;
+      showCropItem();
+    });
+  }).catch(function(e) {
+    console.warn('recrop fetch failed', e);
+    alert('Could not load image for cropping. It may be a cross-origin restriction.');
+  });
 }
 
 // SORT MODE
