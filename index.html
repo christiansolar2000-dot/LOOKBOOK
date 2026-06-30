@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Lookbook</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -16,7 +16,9 @@ body { background: var(--bg); font-family: var(--f); color: var(--ink); min-heig
 nav {
   position: sticky; top: 0; z-index: 300;
   background: #fff; border-bottom: 1px solid var(--faint);
-  height: 48px; display: flex; align-items: center; padding: 0 20px; gap: 0;
+  height: calc(56px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  display: flex; align-items: center; padding-left: 20px; padding-right: 20px; gap: 0;
 }
 .nav-logo {
   font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
@@ -759,7 +761,7 @@ function openBoard(id) {
   var board = getBoards().find(function(b) { return b.id === id; });
   if (!board) return;
   document.getElementById('boardsGrid').style.display = 'none';
-  document.getElementById('boardDetail').style.display = '';
+  document.getElementById('boardDetail').style.display = 'block';
   document.getElementById('boardDetailName').textContent = board.name;
   var posts = getAllPosts().filter(function(p) { return (board.postIds || []).indexOf(p.id) >= 0; });
   var grid = document.getElementById('boardGrid');
