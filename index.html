@@ -269,8 +269,20 @@ nav {
 .crop-box img { display:block; width:100%; user-select:none; pointer-events:none; }
 .crop-overlay-top { position:absolute; top:0; left:0; right:0; background:rgba(0,0,0,0.55); pointer-events:none; }
 .crop-overlay-bottom { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.55); pointer-events:none; }
-.crop-handle { position:absolute; left:0; right:0; height:3px; background:#fff; cursor:ns-resize; touch-action:none; }
-.crop-handle::after { content:''; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:40px; height:20px; }
+.crop-handle {
+  position:absolute; left:0; right:0; height:4px;
+  background:#fff; cursor:ns-resize; touch-action:none; z-index:10;
+}
+.crop-handle::before {
+  content:''; position:absolute; left:0; right:0;
+  top:-20px; bottom:-20px; /* 40px tall touch target */
+}
+.crop-handle::after {
+  content:'⋯'; position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  font-size:18px; color:#fff; letter-spacing:3px; pointer-events:none;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
 .crop-handle-top { top:0; }
 .crop-handle-bottom { bottom:0; }
 .crop-actions { display:flex; gap:10px; margin-top:16px; }
@@ -468,6 +480,9 @@ function getAllPosts() {
   return [...SEED_POSTS, ...uploads];
 }
 function getUploads() { return JSON.parse(localStorage.getItem('lb_uploads') || '[]'); }
+function getCrops() { try { return JSON.parse(localStorage.getItem('lb_crops') || '{}'); } catch(e) { return {}; } }
+function saveCrop(id, dataUrl) { var c = getCrops(); c[id] = dataUrl; localStorage.setItem('lb_crops', JSON.stringify(c)); }
+function getCrop(id) { return getCrops()[id] || null; }
 function saveUploads(u) { localStorage.setItem('lb_uploads', JSON.stringify(u)); }
 function getBoards() { return JSON.parse(localStorage.getItem('lb_boards') || '[]'); }
 function saveBoards(b) { localStorage.setItem('lb_boards', JSON.stringify(b)); }
@@ -594,7 +609,7 @@ function makeCard(post, onClick) {
   var card = document.createElement('div');
   card.className = 'card';
   var img = document.createElement('img');
-  img.src = post.image || '';
+  img.src = getCrop(post.id) || post.image || '';
   img.alt = '';
   img.loading = 'lazy';
   card.appendChild(img);
@@ -631,7 +646,8 @@ function openLb(id) {
   currentId = id;
   logInteraction(id, 'open');
 
-  document.getElementById('lbImg').src = post.image || '';
+  var storedCrop = getCrop(id);
+  document.getElementById('lbImg').src = storedCrop || post.image || '';
   document.querySelectorAll('.lb-censor').forEach(function(el) { el.remove(); });
   if (post.censor_boxes) {
     post.censor_boxes.forEach(function(box) {
@@ -1106,19 +1122,22 @@ function showCropItem() {
 
   var objUrl = URL.createObjectURL(item.file);
   cropImg.onload = function() {
-    // Display dimensions
-    var dispH = cropImg.offsetHeight;
-    var dispW = cropImg.offsetWidth;
-    var scaleY = dispH / item.h;
-    var topPx = Math.round(item.top * scaleY);
-    var botPx = Math.round(item.bottom * scaleY);
-    cropCurrentBounds = { top: topPx, bottom: botPx, h: dispH, dispW: dispW, scaleY: scaleY, imgH: item.h };
-    updateCropOverlays();
+    // Must wait for render before reading offsetHeight — use rAF to be sure
+    requestAnimationFrame(function() {
+      var dispH = cropImg.offsetHeight;
+      var dispW = cropImg.offsetWidth;
+      if (!dispH) dispH = cropImg.naturalHeight; // fallback
+      var scaleY = dispH / item.h;
+      var topPx = Math.round(item.top * scaleY);
+      var botPx = Math.round(item.bottom * scaleY);
+      cropCurrentBounds = { top: topPx, bottom: botPx, h: dispH, dispW: dispW, scaleY: scaleY, imgH: item.h };
+      updateCropOverlays();
+      initCropHandles(); // attach AFTER dimensions are known
+    });
     URL.revokeObjectURL(objUrl);
   };
   cropImg.src = objUrl;
   modal.classList.add('open');
-  initCropHandles();
 }
 
 function updateCropOverlays() {
@@ -1538,17 +1557,19 @@ function recropFromLb() {
             var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
             var ghPath = 'images/' + postId + '.' + ext;
 
-            // Show cropped image immediately in lightbox (no waiting for GitHub CDN)
+            // Show cropped image immediately in lightbox
             document.getElementById('lbImg').src = dataUrl;
 
-            // Update the card in the grid immediately using dataURL
-            function updateGridCard(newSrc) {
-              document.querySelectorAll('.card img').forEach(function(img) {
-                // Find the card whose post matches this id
-                var card = img.closest('.card');
-                if (card && card._postId === postId) img.src = newSrc;
-              });
-            }
+            // Persist so it survives lightbox close/reopen
+            saveCrop(postId, dataUrl);
+
+            // Update matching card in grid immediately
+            document.querySelectorAll('.card').forEach(function(card) {
+              if (card._postId === postId) {
+                var img = card.querySelector('img');
+                if (img) img.src = dataUrl;
+              }
+            });
 
             // Push to GitHub in background (seed posts + uploads with token)
             if (token) {
@@ -1604,6 +1625,7 @@ function recropFromLb() {
             var r2 = new FileReader();
             r2.onload = function() {
               document.getElementById('lbImg').src = r2.result;
+              saveCrop(postId, r2.result); // persist for all post types
               if (!isSeed) {
                 var uploads = getUploads();
                 var idx = uploads.findIndex(function(p) { return p.id === postId; });
