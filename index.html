@@ -211,6 +211,40 @@ nav {
 #settingsModal .modal { max-width: 380px; }
 .setting-note { font-size: 11px; color: var(--muted); font-style: italic; margin-bottom: 16px; line-height: 1.5; }
 
+/* PASSWORD SCREEN */
+#lockScreen {
+  position: fixed; inset: 0; background: #fff; z-index: 9999;
+  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  gap: 20px;
+}
+#lockScreen.hidden { display: none; }
+.lock-title {
+  font-size: 11px; letter-spacing: 0.22em; text-transform: uppercase; color: #111;
+}
+.lock-input {
+  border: none; border-bottom: 1px solid #e8e8e8; font-size: 14px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  padding: 8px 0; outline: none; text-align: center; width: 200px;
+  letter-spacing: 0.1em; background: transparent;
+}
+.lock-input:focus { border-bottom-color: #111; }
+.lock-error {
+  font-size: 10px; letter-spacing: 0.1em; color: #c00;
+  text-transform: uppercase; min-height: 16px;
+}
+
+.scraped-card {
+  border: 1px solid var(--faint); padding: 10px 12px; margin-bottom: 8px;
+  font-size: 11px; color: var(--muted);
+}
+.scraped-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.scraped-card-user { font-weight: 500; color: var(--ink); font-size: 11px; }
+.scraped-card-caption { color: var(--muted); font-size: 11px; line-height: 1.4; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scraped-card-meta { font-size: 10px; color: #bbb; }
+.scraped-card-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+.scraped-card-tag { font-size: 9px; padding: 2px 7px; background: var(--chip); color: var(--muted); }
+.scraped-card img { width: 48px; height: 56px; object-fit: cover; flex-shrink: 0; }
+
 @media (max-width: 600px) {
   nav { padding: 0 12px; }
   .explore-header { padding: 12px 12px 0; }
@@ -224,6 +258,12 @@ nav {
 </style>
 </head>
 <body>
+
+<div id="lockScreen">
+  <div class="lock-title">Lookbook</div>
+  <input class="lock-input" id="lockInput" type="password" placeholder="·····" autocomplete="off">
+  <div class="lock-error" id="lockError"></div>
+</div>
 
 <nav>
   <span class="nav-logo" id="navLogo">Lookbook</span>
@@ -302,10 +342,14 @@ nav {
       <div class="drop-hint">Tap to choose photos · drag & drop</div>
     </div>
     <div class="drop-previews" id="dropPreviews"></div>
-    <div class="field"><label>@username / source</label><input id="upUser" type="text" placeholder="e.g. kothoffline"></div>
-    <div class="field"><label>Caption</label><input id="upCaption" type="text" placeholder="optional"></div>
-    <div class="field"><label>Tags <span style="text-transform:none;letter-spacing:0;font-style:italic">(comma separated)</span></label><input id="upTags" type="text" placeholder="outdoor, red, editorial"></div>
-    <div class="field"><label>Date</label><input id="upDate" type="text" placeholder="e.g. June 2025"></div>
+    <div id="scrapedResults" style="display:none">
+      <div class="modal-status" id="scrapeStatus" style="text-align:left;margin-bottom:12px;"></div>
+      <div id="scrapedCards"></div>
+    </div>
+    <div id="manualFields">
+      <div class="field"><label>@username / source <span style="text-transform:none;letter-spacing:0;font-style:italic">(optional if screenshots)</span></label><input id="upUser" type="text" placeholder="e.g. kothoffline"></div>
+      <div class="field"><label>Extra tags <span style="text-transform:none;letter-spacing:0;font-style:italic">(comma separated)</span></label><input id="upTags" type="text" placeholder="outdoor, red, editorial"></div>
+    </div>
     <button class="modal-save" id="saveBtn" disabled onclick="saveUpload()">Save</button>
     <div class="modal-status" id="uploadStatus"></div>
   </div>
@@ -674,12 +718,16 @@ var pendingFiles = [];
 function openUpload() { document.getElementById('uploadModal').classList.add('open'); }
 function closeUpload() {
   document.getElementById('uploadModal').classList.remove('open');
-  pendingFiles = [];
+  pendingFiles = []; scrapedData = [];
   document.getElementById('dropPreviews').innerHTML = '';
   document.getElementById('fileInput').value = '';
-  ['upUser','upCaption','upTags','upDate'].forEach(function(id) { document.getElementById(id).value = ''; });
+  document.getElementById('upUser').value = '';
+  document.getElementById('upTags').value = '';
   document.getElementById('saveBtn').disabled = true;
   document.getElementById('uploadStatus').textContent = '';
+  document.getElementById('scrapedResults').style.display = 'none';
+  document.getElementById('scrapedCards').innerHTML = '';
+  document.getElementById('scrapeStatus').textContent = '';
 }
 
 var dropZone = document.getElementById('dropZone');
@@ -696,50 +744,31 @@ function cropScreenshot(file) {
     var url = URL.createObjectURL(file);
     img.onload = function() {
       var w = img.width, h = img.height;
-      // Heuristic: tall portrait image (aspect ratio > 1.5) likely a screenshot
       var isScreenshot = (h / w) > 1.5;
       if (!isScreenshot) { resolve(file); URL.revokeObjectURL(url); return; }
-      // Scan for the photo bounds using a canvas
       var canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       var ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0);
       var data = ctx.getImageData(0, 0, w, h).data;
-
       function isDark(y, threshold) {
-        // Sample 5 pixels across the row
         var count = 0;
         for (var x = Math.floor(w*0.1); x < Math.floor(w*0.9); x += Math.floor(w*0.2)) {
           var i = (y * w + x) * 4;
-          var brightness = (data[i] + data[i+1] + data[i+2]) / 3;
-          if (brightness < threshold) count++;
+          if ((data[i] + data[i+1] + data[i+2]) / 3 < threshold) count++;
         }
         return count >= 3;
       }
-
-      // Find top: scan down from 10% to find where dark UI ends and photo begins
       var topCrop = Math.floor(h * 0.08);
-      var darkThreshold = 60;
-      // Look for transition from dark header to bright photo content
       for (var y = Math.floor(h * 0.05); y < Math.floor(h * 0.35); y++) {
-        if (!isDark(y, darkThreshold) && isDark(y - 1, darkThreshold)) {
-          topCrop = y;
-          break;
-        }
+        if (!isDark(y, 60) && isDark(y - 1, 60)) { topCrop = y; break; }
       }
-
-      // Find bottom: scan up from 85% to find where photo ends and dark UI bar starts
       var bottomCrop = Math.floor(h * 0.88);
       for (var y2 = Math.floor(h * 0.88); y2 > Math.floor(h * 0.5); y2--) {
-        if (!isDark(y2, darkThreshold) && isDark(y2 + 1, darkThreshold)) {
-          bottomCrop = y2;
-          break;
-        }
+        if (!isDark(y2, 60) && isDark(y2 + 1, 60)) { bottomCrop = y2; break; }
       }
-
       var cropH = bottomCrop - topCrop;
       if (cropH < h * 0.3) { resolve(file); URL.revokeObjectURL(url); return; }
-
       var out = document.createElement('canvas');
       out.width = w; out.height = cropH;
       out.getContext('2d').drawImage(img, 0, topCrop, w, cropH, 0, 0, w, cropH);
@@ -752,35 +781,102 @@ function cropScreenshot(file) {
   });
 }
 
+// Scrape post info from screenshot using Gemini
+async function scrapePostInfo(file, b64) {
+  var geminiKey = getGeminiKey();
+  if (!geminiKey) return null;
+  try {
+    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [
+        { text: 'This is a social media screenshot. Extract the post information and return ONLY a JSON object with these fields: {"username": "@handle or null", "caption": "post caption text or null", "date": "date string or null", "is_social_screenshot": true/false, "visual_tags": ["tag1","tag2",...8-12 descriptive tags about the visual content: colors, clothing, mood, setting, style]}. No explanation, just JSON.' },
+        { inline_data: { mime_type: file.type || 'image/jpeg', data: b64 } }
+      ]}]})
+    });
+    var data = await res.json();
+    var txt = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) || '';
+    var match = txt.match(/\{[\s\S]*\}/);
+    if (match) return JSON.parse(match[0]);
+  } catch(e) { console.log('Gemini scrape error', e); }
+  return null;
+}
+
+var pendingFiles = [];
+var scrapedData = []; // per-file scraped info
+
 function handleFiles(files) {
   pendingFiles = Array.from(files).filter(function(f) { return f.type.indexOf('image/') === 0; });
+  scrapedData = [];
   var prev = document.getElementById('dropPreviews');
   prev.innerHTML = '';
-  // Show originals as preview while processing
   pendingFiles.forEach(function(f) {
     var img = document.createElement('img');
     img.src = URL.createObjectURL(f);
     prev.appendChild(img);
   });
   document.getElementById('saveBtn').disabled = pendingFiles.length === 0;
-  // Auto-crop screenshots in the background and update pendingFiles
-  Promise.all(pendingFiles.map(cropScreenshot)).then(function(cropped) {
-    pendingFiles = cropped;
-    prev.innerHTML = '';
-    pendingFiles.forEach(function(f) {
-      var img = document.createElement('img');
-      img.src = URL.createObjectURL(f);
-      prev.appendChild(img);
-    });
-  });
-}
+  document.getElementById('scrapedResults').style.display = 'none';
+  document.getElementById('scrapedCards').innerHTML = '';
 
-function fileToB64(file) {
-  return new Promise(function(res, rej) {
-    var r = new FileReader();
-    r.onload = function() { res(r.result.split(',')[1]); };
-    r.onerror = rej;
-    r.readAsDataURL(file);
+  var geminiKey = getGeminiKey();
+
+  // Process: crop then scrape
+  Promise.all(pendingFiles.map(function(f) { return fileToB64(f); })).then(function(b64s) {
+    return Promise.all(pendingFiles.map(function(f, i) {
+      return cropScreenshot(f).then(function(cropped) {
+        pendingFiles[i] = cropped;
+        // Update preview
+        prev.children[i] && (prev.children[i].src = URL.createObjectURL(cropped));
+        if (geminiKey) {
+          document.getElementById('scrapeStatus').textContent = 'Reading post info (' + (i+1) + '/' + pendingFiles.length + ')…';
+          document.getElementById('scrapedResults').style.display = '';
+          return fileToB64(cropped).then(function(cb64) {
+            return scrapePostInfo(f, b64s[i]).then(function(info) {
+              scrapedData[i] = info;
+              return info;
+            });
+          });
+        }
+        return null;
+      });
+    }));
+  }).then(function() {
+    if (!geminiKey) return;
+    // Group posts by matching username+caption (same post = carousel)
+    document.getElementById('scrapeStatus').textContent = 'Done — ' + pendingFiles.length + ' photo' + (pendingFiles.length > 1 ? 's' : '') + ' ready';
+    var cards = document.getElementById('scrapedCards');
+    cards.innerHTML = '';
+    pendingFiles.forEach(function(f, i) {
+      var info = scrapedData[i] || {};
+      var card = document.createElement('div');
+      card.className = 'scraped-card';
+      var preview = document.createElement('div');
+      preview.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
+      var thumb = document.createElement('img');
+      thumb.src = URL.createObjectURL(f);
+      preview.appendChild(thumb);
+      var meta = document.createElement('div');
+      meta.style.flex = '1';
+      meta.style.minWidth = '0';
+      meta.innerHTML = '<div class="scraped-card-header"><span class="scraped-card-user">' + (info.username || 'unknown') + '</span></div>' +
+        '<div class="scraped-card-caption">' + (info.caption || '') + '</div>' +
+        '<div class="scraped-card-meta">' + (info.date || '') + '</div>';
+      if (info.visual_tags && info.visual_tags.length) {
+        var tagDiv = document.createElement('div');
+        tagDiv.className = 'scraped-card-tags';
+        info.visual_tags.forEach(function(t) {
+          var span = document.createElement('span');
+          span.className = 'scraped-card-tag';
+          span.textContent = t;
+          tagDiv.appendChild(span);
+        });
+        meta.appendChild(tagDiv);
+      }
+      preview.appendChild(meta);
+      card.appendChild(preview);
+      cards.appendChild(card);
+    });
   });
 }
 
@@ -792,75 +888,83 @@ async function saveUpload() {
 
   var token = getGhToken();
   if (!token) {
-    status.textContent = 'No GitHub token. Open Settings (double-tap logo) to add one.';
+    status.textContent = 'No GitHub token. Double-tap logo to add one.';
     btn.disabled = false;
     return;
   }
 
-  var username = document.getElementById('upUser').value.trim() || 'unknown';
-  var caption = document.getElementById('upCaption').value.trim();
-  var tagsRaw = document.getElementById('upTags').value.trim();
-  var date = document.getElementById('upDate').value.trim();
-  var tags = tagsRaw ? tagsRaw.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [];
+  var extraTags = document.getElementById('upTags').value.trim();
+  extraTags = extraTags ? extraTags.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [];
+  var manualUser = document.getElementById('upUser').value.trim();
 
   var uploads = getUploads();
   var allNums = SEED_POSTS.concat(uploads).map(function(p) { return parseInt(p.id) || 0; });
   var nextNum = Math.max.apply(null, [0].concat(allNums)) + 1;
 
-  var newPosts = [];
-  for (var i = 0; i < pendingFiles.length; i++) {
-    var file = pendingFiles[i];
-    status.textContent = 'Uploading ' + (i + 1) + ' of ' + pendingFiles.length + '…';
-    var id = String(nextNum).padStart(3, '0');
-    nextNum++;
-    var b64 = await fileToB64(file);
-    var ext = file.type === 'image/png' ? 'png' : 'jpg';
-    var ghPath = 'images/' + id + '.' + ext;
-    var imageUrl = '';
+  // Group files by post: same username+caption = same carousel
+  var groups = [];
+  pendingFiles.forEach(function(file, i) {
+    var info = scrapedData[i] || {};
+    var username = manualUser || (info.username ? info.username.replace('@','') : 'unknown');
+    var caption = info.caption || '';
+    var date = info.date || '';
+    var tags = (info.visual_tags || []).concat(extraTags).filter(function(v, j, a) { return a.indexOf(v) === j; });
 
-    try {
-      var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-        method: 'PUT',
-        headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: 'add ' + ghPath, content: b64 })
-      });
-      var data = await res.json();
-      imageUrl = 'https://raw.githubusercontent.com/' + GH_USER + '/' + GH_REPO + '/main/' + ghPath;
-    } catch(e) {
-      imageUrl = URL.createObjectURL(file);
+    // Try to match to existing group (same username + caption = same post/carousel)
+    var matched = false;
+    if (caption) {
+      for (var g = 0; g < groups.length; g++) {
+        if (groups[g].username === username && groups[g].caption === caption) {
+          groups[g].files.push(file);
+          groups[g].tags = groups[g].tags.concat(tags).filter(function(v,j,a){return a.indexOf(v)===j;});
+          matched = true;
+          break;
+        }
+      }
     }
+    if (!matched) {
+      groups.push({ username: username, caption: caption, date: date, tags: tags, files: [file] });
+    }
+  });
 
-    var autoTags = tags.slice();
-    var geminiKey = getGeminiKey();
-    if (geminiKey) {
+  var allNewPosts = [];
+  for (var g = 0; g < groups.length; g++) {
+    var group = groups[g];
+    var groupPosts = [];
+    for (var fi = 0; fi < group.files.length; fi++) {
+      var file = group.files[fi];
+      status.textContent = 'Uploading ' + (allNewPosts.length + 1) + ' of ' + pendingFiles.length + '…';
+      var id = String(nextNum).padStart(3, '0');
+      nextNum++;
+      var b64 = await fileToB64(file);
+      var ext = file.type === 'image/png' ? 'png' : 'jpg';
+      var ghPath = 'images/' + id + '.' + ext;
+      var imageUrl = '';
       try {
-        var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [
-            { text: 'Analyze this image and return ONLY a JSON array of 8-12 descriptive tags (colors, clothing, mood, setting, style). No explanation, just the array.' },
-            { inline_data: { mime_type: file.type || 'image/jpeg', data: b64 } }
-          ]}]})
+        var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+          method: 'PUT',
+          headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'add ' + ghPath, content: b64 })
         });
-        var gData = await gRes.json();
-        var txt = (gData.candidates && gData.candidates[0] && gData.candidates[0].content && gData.candidates[0].content.parts && gData.candidates[0].content.parts[0] && gData.candidates[0].content.parts[0].text) || '';
-        var matchArr = txt.match(/\[.*?\]/s);
-        if (matchArr) autoTags = autoTags.concat(JSON.parse(matchArr[0])).filter(function(v, i, a) { return a.indexOf(v) === i; });
-      } catch(e) {}
+        imageUrl = 'https://raw.githubusercontent.com/' + GH_USER + '/' + GH_REPO + '/main/' + ghPath;
+      } catch(e) {
+        imageUrl = URL.createObjectURL(file);
+      }
+      groupPosts.push({ id: id, username: group.username, caption: group.caption, hashtags: [], post_date: group.date, visual_tags: group.tags, notes: '', image: imageUrl, _uploaded: true, set_members: [] });
     }
-
-    newPosts.push({ id: id, username: username, caption: caption, hashtags: [], post_date: date, visual_tags: autoTags, notes: '', image: imageUrl, _uploaded: true, set_members: [] });
-  }
-
-  if (newPosts.length > 1) {
-    newPosts.forEach(function(p, i) {
-      p.set_members = newPosts.filter(function(_, j) { return j !== i; }).map(function(x) { return x.id; });
-    });
+    // Link carousel members
+    if (groupPosts.length > 1) {
+      groupPosts.forEach(function(p, i) {
+        p.set_members = groupPosts.filter(function(_, j) { return j !== i; }).map(function(x) { return x.id; });
+      });
+    }
+    allNewPosts = allNewPosts.concat(groupPosts);
   }
 
   // Push uploads metadata to GitHub
+  status.textContent = 'Syncing…';
   try {
-    var allUploads = uploads.concat(newPosts);
+    var allUploads = uploads.concat(allNewPosts);
     var metaB64 = btoa(unescape(encodeURIComponent(JSON.stringify(allUploads, null, 2))));
     var shaRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/uploads_meta.json', {
       headers: { 'Authorization': 'token ' + token }
@@ -872,9 +976,9 @@ async function saveUpload() {
       headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify({ message: 'update uploads', content: metaB64, sha: sha })
     });
-  } catch(e) {}
+  } catch(e) { console.log('Meta sync error', e); }
 
-  uploads = uploads.concat(newPosts);
+  uploads = uploads.concat(allNewPosts);
   saveUploads(uploads);
   buildPills();
   renderGrid();
@@ -910,10 +1014,59 @@ function saveSettings() {
   }, 800);
 }
 
+// PASSWORD
+var SITE_PASSWORD = 'lookbook2025';
+function checkLock() {
+  if (localStorage.getItem('lb_unlocked') === '1') {
+    document.getElementById('lockScreen').classList.add('hidden');
+    return;
+  }
+  // Show lock screen, hide everything else
+  document.querySelector('nav').style.display = 'none';
+  document.getElementById('explorePage').style.display = 'none';
+}
+document.getElementById('lockInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') {
+    if (this.value === SITE_PASSWORD) {
+      localStorage.setItem('lb_unlocked', '1');
+      document.getElementById('lockScreen').classList.add('hidden');
+      document.querySelector('nav').style.display = '';
+      document.getElementById('explorePage').style.display = '';
+      buildPills();
+      renderGrid();
+      loadRemoteUploads();
+    } else {
+      document.getElementById('lockError').textContent = 'incorrect';
+      this.value = '';
+      setTimeout(function() { document.getElementById('lockError').textContent = ''; }, 1500);
+    }
+  }
+});
+
+// DUPLICATE DETECTION
+function isDuplicate(file) {
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      var b64 = reader.result.split(',')[1].slice(0, 200);
+      var allPosts = getAllPosts();
+      // Check if any existing post image starts with the same data
+      var dupe = allPosts.some(function(p) {
+        return p.image && p.image.indexOf(b64) >= 0;
+      });
+      resolve(dupe);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 // INIT
-buildPills();
-renderGrid();
-loadRemoteUploads();
+checkLock();
+if (localStorage.getItem('lb_unlocked') === '1') {
+  buildPills();
+  renderGrid();
+  loadRemoteUploads();
+}
 </script>
 </body>
 </html>
