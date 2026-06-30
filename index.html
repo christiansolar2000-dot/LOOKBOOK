@@ -595,14 +595,30 @@ function resetSessionOrder() { _sessionOrder = null; }
 
 // GRID
 function renderGrid() {
+  // Explore grid
   var grid = document.getElementById('grid');
   var empty = document.getElementById('empty');
   var filtered = getFiltered();
   grid.innerHTML = '';
   empty.classList.toggle('show', filtered.length === 0);
-  // Use weighted shuffle only for unfiltered home view
   var ordered = (activeUser === 'all' && !activeSearch) ? getWeightedShuffled(filtered) : filtered;
   ordered.forEach(function(p) { grid.appendChild(makeCard(p, function() { openLb(p.id); })); });
+
+  // If a board is open, refresh it too so crops show there
+  if (currentBoardId && document.getElementById('boardDetail').style.display !== 'none') {
+    var board = getBoards().find(function(b) { return b.id === currentBoardId; });
+    if (board) {
+      var bGrid = document.getElementById('boardGrid');
+      bGrid.innerHTML = '';
+      getAllPosts().filter(function(p) { return (board.postIds || []).indexOf(p.id) >= 0; })
+        .forEach(function(p) { bGrid.appendChild(makeCard(p, function() { openLb(p.id); })); });
+    }
+  }
+
+  // Refresh board covers on the boards list page if visible
+  if (document.getElementById('boardsGrid').style.display !== 'none') {
+    renderBoards();
+  }
 }
 
 function makeCard(post, onClick) {
