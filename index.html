@@ -236,9 +236,7 @@ nav {
   <div class="explore-header">
     <input id="searchInput" type="search" placeholder="Search tags, users, vibes…" autocomplete="off">
   </div>
-  <div class="filter-pills" id="filterPills">
-    <button class="pill active" data-user="all" onclick="setUser('all')">All</button>
-  </div>
+  <div id="filterPills" style="display:none"></div>
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty">No results</div>
 </div>
@@ -373,7 +371,7 @@ function showBoards() {
 function buildPills() {
   const users = [...new Set(getAllPosts().map(function(p) { return p.username; }))].sort();
   const el = document.getElementById('filterPills');
-  el.innerHTML = '<button class="pill active" data-user="all" onclick="setUser('all')">All</button>';
+  el.innerHTML = '<button class="pill active" data-user="all" onclick="setUser(\'all\')">All</button>';
   users.forEach(function(u) {
     const b = document.createElement('button');
     b.className = 'pill';
