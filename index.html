@@ -261,6 +261,24 @@ nav {
 #sortCard { user-select:none; transition: transform 0.15s, opacity 0.15s; }
 #sortCard.dragging { transition: none; }
 
+
+/* CROP PREVIEW */
+.crop-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:800; flex-direction:column; align-items:center; justify-content:center; }
+.crop-modal-bg.open { display:flex; }
+.crop-box { position:relative; background:#000; max-width:min(420px,92vw); max-height:72vh; overflow:hidden; touch-action:none; }
+.crop-box img { display:block; width:100%; user-select:none; pointer-events:none; }
+.crop-overlay-top { position:absolute; top:0; left:0; right:0; background:rgba(0,0,0,0.55); pointer-events:none; }
+.crop-overlay-bottom { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.55); pointer-events:none; }
+.crop-handle { position:absolute; left:0; right:0; height:3px; background:#fff; cursor:ns-resize; touch-action:none; }
+.crop-handle::after { content:''; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:40px; height:20px; }
+.crop-handle-top { top:0; }
+.crop-handle-bottom { bottom:0; }
+.crop-actions { display:flex; gap:10px; margin-top:16px; }
+.crop-btn { font-size:10px; letter-spacing:0.12em; text-transform:uppercase; padding:10px 24px; border:none; cursor:pointer; font-family:var(--f); }
+.crop-btn-cancel { background:rgba(255,255,255,0.12); color:#fff; }
+.crop-btn-ok { background:#fff; color:#111; }
+.crop-counter { font-size:10px; color:rgba(255,255,255,0.5); margin-top:8px; letter-spacing:0.1em; }
+
 </style>
 </head>
 <body>
@@ -369,6 +387,22 @@ nav {
       <button class="confirm-btn confirm-btn-delete" id="confirmOkBtn">Delete</button>
     </div>
   </div>
+</div>
+
+<!-- CROP PREVIEW -->
+<div class="crop-modal-bg" id="cropModal">
+  <div class="crop-box" id="cropBox">
+    <img id="cropImg" src="" alt="">
+    <div class="crop-overlay-top" id="cropOverlayTop"></div>
+    <div class="crop-overlay-bottom" id="cropOverlayBottom"></div>
+    <div class="crop-handle crop-handle-top" id="cropHandleTop"></div>
+    <div class="crop-handle crop-handle-bottom" id="cropHandleBottom"></div>
+  </div>
+  <div class="crop-actions">
+    <button class="crop-btn crop-btn-cancel" onclick="cropCancel()">Skip crop</button>
+    <button class="crop-btn crop-btn-ok" onclick="cropConfirm()">Use this crop</button>
+  </div>
+  <div class="crop-counter" id="cropCounter"></div>
 </div>
 
 <!-- UPLOAD MODAL -->
@@ -840,68 +874,298 @@ dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('o
 dropZone.addEventListener('drop', function(e) { e.preventDefault(); dropZone.classList.remove('over'); handleFiles(e.dataTransfer.files); });
 fileInput.addEventListener('change', function() { handleFiles(fileInput.files); });
 
-// Detect if image is a social media screenshot and crop out the UI
-function cropScreenshot(file) {
+// ── SMART CROP ──────────────────────────────────────────────
+// Analyses pixel data to find where Instagram UI ends and content begins.
+// Strategy: scan rows for uniform-brightness bands (status bar, header, action strip)
+// then use variance to find the real content boundaries.
+function detectCropBounds(imageData, w, h) {
+  var d = imageData.data;
+
+  // Row brightness: average luminance across the middle 60% of width
+  function rowLuma(y) {
+    var sum = 0, count = 0;
+    var x0 = Math.floor(w * 0.2), x1 = Math.floor(w * 0.8);
+    for (var x = x0; x < x1; x += 3) {
+      var i = (y * w + x) * 4;
+      sum += 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      count++;
+    }
+    return sum / count;
+  }
+
+  // Row variance: how much colour changes across a row (low = uniform UI band)
+  function rowVariance(y) {
+    var vals = [], mean = 0;
+    var x0 = Math.floor(w * 0.1), x1 = Math.floor(w * 0.9);
+    for (var x = x0; x < x1; x += 4) {
+      var i = (y * w + x) * 4;
+      var v = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      vals.push(v); mean += v;
+    }
+    mean /= vals.length;
+    var vari = 0;
+    for (var j = 0; j < vals.length; j++) vari += (vals[j]-mean)*(vals[j]-mean);
+    return vari / vals.length;
+  }
+
+  // A UI chrome row: very uniform (low variance) AND either bright (>200) or very dark (<30)
+  function isChrome(y) {
+    var v = rowVariance(y);
+    var l = rowLuma(y);
+    return v < 180 && (l > 185 || l < 35);
+  }
+
+  // Scan top: find last consecutive chrome row in top 30%
+  var topBound = 0;
+  var searchTop = Math.floor(h * 0.30);
+  var chromeRun = 0;
+  for (var y = 0; y < searchTop; y++) {
+    if (isChrome(y)) { chromeRun++; topBound = y + 1; }
+    else if (chromeRun > 3) break; // ended a real chrome band
+    else { chromeRun = 0; } // noise, keep scanning
+  }
+  // Don't crop more than 22% from top
+  topBound = Math.min(topBound, Math.floor(h * 0.22));
+
+  // Scan bottom: find first consecutive chrome row scanning up from 85%
+  var bottomBound = h;
+  var searchBottom = Math.floor(h * 0.85);
+  chromeRun = 0;
+  for (var y2 = h - 1; y2 > searchBottom; y2--) {
+    if (isChrome(y2)) { chromeRun++; bottomBound = y2; }
+    else if (chromeRun > 3) break;
+    else { chromeRun = 0; }
+  }
+  bottomBound = Math.max(bottomBound, Math.floor(h * 0.72));
+
+  // Sanity: must keep at least 50% of image
+  if (bottomBound - topBound < h * 0.5) { topBound = 0; bottomBound = h; }
+
+  return { top: topBound, bottom: bottomBound };
+}
+
+// Analyse a file and return suggested crop bounds (pixel values, not %)
+function analyseScreenshot(file) {
   return new Promise(function(resolve) {
     var img = new Image();
     var url = URL.createObjectURL(file);
     img.onload = function() {
-      var w = img.width, h = img.height;
-      var isScreenshot = (h / w) > 1.5;
-      if (!isScreenshot) { resolve(file); URL.revokeObjectURL(url); return; }
+      var w = img.naturalWidth, h = img.naturalHeight;
+      var isScreenshot = (h / w) > 1.4; // portrait-ish
+      if (!isScreenshot) { URL.revokeObjectURL(url); resolve({ file: file, top: 0, bottom: h, w: w, h: h, skip: true }); return; }
+      // Downscale for analysis only (speed)
+      var scale = Math.min(1, 600 / h);
+      var sw = Math.round(w * scale), sh = Math.round(h * scale);
       var canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
+      canvas.width = sw; canvas.height = sh;
       var ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      var data = ctx.getImageData(0, 0, w, h).data;
-      function isDark(y, threshold) {
-        var count = 0;
-        for (var x = Math.floor(w*0.1); x < Math.floor(w*0.9); x += Math.floor(w*0.2)) {
-          var i = (y * w + x) * 4;
-          if ((data[i] + data[i+1] + data[i+2]) / 3 < threshold) count++;
-        }
-        return count >= 3;
-      }
-      var topCrop = Math.floor(h * 0.08);
-      for (var y = Math.floor(h * 0.05); y < Math.floor(h * 0.35); y++) {
-        if (!isDark(y, 60) && isDark(y - 1, 60)) { topCrop = y; break; }
-      }
-      var bottomCrop = Math.floor(h * 0.88);
-      for (var y2 = Math.floor(h * 0.88); y2 > Math.floor(h * 0.5); y2--) {
-        if (!isDark(y2, 60) && isDark(y2 + 1, 60)) { bottomCrop = y2; break; }
-      }
-      var cropH = bottomCrop - topCrop;
-      if (cropH < h * 0.3) { resolve(file); URL.revokeObjectURL(url); return; }
+      ctx.drawImage(img, 0, 0, sw, sh);
+      var bounds = detectCropBounds(ctx.getImageData(0, 0, sw, sh), sw, sh);
+      URL.revokeObjectURL(url);
+      resolve({
+        file: file,
+        top: Math.round(bounds.top / scale),
+        bottom: Math.round(bounds.bottom / scale),
+        w: w, h: h, skip: false
+      });
+    };
+    img.onerror = function() { URL.revokeObjectURL(url); resolve({ file: file, top: 0, bottom: 0, w: 0, h: 0, skip: true }); };
+    img.src = url;
+  });
+}
+
+// Apply a crop given pixel bounds and return a new File blob
+function applyCrop(file, top, bottom, w, h) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function() {
+      var cropH = bottom - top;
       var out = document.createElement('canvas');
       out.width = w; out.height = cropH;
-      out.getContext('2d').drawImage(img, 0, topCrop, w, cropH, 0, 0, w, cropH);
+      out.getContext('2d').drawImage(img, 0, top, w, cropH, 0, 0, w, cropH);
       URL.revokeObjectURL(url);
       out.toBlob(function(blob) {
-        resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-      }, 'image/jpeg', 0.92);
+        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '') + '_cropped.jpg', { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.93);
     };
     img.src = url;
   });
 }
 
-// Scrape post info from screenshot using Gemini
+// ── CROP PREVIEW UI ──────────────────────────────────────────
+var cropQueue = []; // [{file, top, bottom, w, h}, ...]
+var cropQueueIndex = 0;
+var cropResolveQueue = []; // resolve callbacks
+var cropCurrentBounds = { top: 0, bottom: 0, h: 0 }; // in display px
+
+function showCropModal(queue, resolves) {
+  cropQueue = queue;
+  cropResolveQueue = resolves;
+  cropQueueIndex = 0;
+  showCropItem();
+}
+
+function showCropItem() {
+  if (cropQueueIndex >= cropQueue.length) {
+    document.getElementById('cropModal').classList.remove('open');
+    return;
+  }
+  var item = cropQueue[cropQueueIndex];
+  var modal = document.getElementById('cropModal');
+  var box = document.getElementById('cropBox');
+  var cropImg = document.getElementById('cropImg');
+  document.getElementById('cropCounter').textContent =
+    (cropQueue.length > 1) ? (cropQueueIndex + 1) + ' of ' + cropQueue.length : '';
+
+  var objUrl = URL.createObjectURL(item.file);
+  cropImg.onload = function() {
+    // Display dimensions
+    var dispH = cropImg.offsetHeight;
+    var dispW = cropImg.offsetWidth;
+    var scaleY = dispH / item.h;
+    var topPx = Math.round(item.top * scaleY);
+    var botPx = Math.round(item.bottom * scaleY);
+    cropCurrentBounds = { top: topPx, bottom: botPx, h: dispH, dispW: dispW, scaleY: scaleY, imgH: item.h };
+    updateCropOverlays();
+    URL.revokeObjectURL(objUrl);
+  };
+  cropImg.src = objUrl;
+  modal.classList.add('open');
+  initCropHandles();
+}
+
+function updateCropOverlays() {
+  var b = cropCurrentBounds;
+  document.getElementById('cropOverlayTop').style.height = b.top + 'px';
+  document.getElementById('cropOverlayBottom').style.height = (b.h - b.bottom) + 'px';
+  document.getElementById('cropHandleTop').style.top = b.top + 'px';
+  document.getElementById('cropHandleBottom').style.bottom = (b.h - b.bottom) + 'px';
+}
+
+function initCropHandles() {
+  var handleTop = document.getElementById('cropHandleTop');
+  var handleBot = document.getElementById('cropHandleBottom');
+  var box = document.getElementById('cropBox');
+
+  function makeDrag(handle, isTop) {
+    function onMove(e) {
+      e.preventDefault();
+      var rect = box.getBoundingClientRect();
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      var y = Math.round(clientY - rect.top);
+      var b = cropCurrentBounds;
+      if (isTop) {
+        b.top = Math.max(0, Math.min(y, b.bottom - 40));
+      } else {
+        b.bottom = Math.max(b.top + 40, Math.min(y, b.h));
+      }
+      updateCropOverlays();
+    }
+    function onEnd() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onEnd);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+    }
+    handle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onEnd);
+    });
+    handle.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('touchend', onEnd);
+    }, { passive: false });
+  }
+  // Re-attach (clone to remove old listeners)
+  var newTop = handleTop.cloneNode(true); handleTop.parentNode.replaceChild(newTop, handleTop);
+  var newBot = handleBot.cloneNode(true); handleBot.parentNode.replaceChild(newBot, handleBot);
+  makeDrag(document.getElementById('cropHandleTop'), true);
+  makeDrag(document.getElementById('cropHandleBottom'), false);
+}
+
+function cropConfirm() {
+  var b = cropCurrentBounds;
+  var item = cropQueue[cropQueueIndex];
+  // Convert display px back to image px
+  var topImg = Math.round(b.top / b.scaleY);
+  var botImg = Math.round(b.bottom / b.scaleY);
+  var resolve = cropResolveQueue[cropQueueIndex];
+  applyCrop(item.file, topImg, botImg, item.w, item.h).then(function(cropped) {
+    resolve(cropped);
+    cropQueueIndex++;
+    showCropItem();
+  });
+}
+
+function cropCancel() {
+  // Use auto-detected bounds without user confirmation
+  var item = cropQueue[cropQueueIndex];
+  var resolve = cropResolveQueue[cropQueueIndex];
+  if (item.top === 0 && item.bottom === item.h || item.skip) {
+    resolve(item.file);
+  } else {
+    applyCrop(item.file, item.top, item.bottom, item.w, item.h).then(function(cropped) {
+      resolve(cropped);
+    });
+  }
+  cropQueueIndex++;
+  showCropItem();
+}
+
+// Scrape post info from screenshot using Gemini 2.0 Flash
 async function scrapePostInfo(file, b64) {
   var geminiKey = getGeminiKey();
   if (!geminiKey) return null;
+  var prompt = `You are analysing an Instagram screenshot for a personal fashion and art inspiration archive.
+
+TASK: Extract structured metadata AND generate rich visual tags.
+
+INSTAGRAM UI LAYOUT (use this to locate data):
+- Username: appears near the top of the post, after a circular profile photo, usually in bold. May also appear in the caption as @mention.
+- Caption: the text block below the image/media. May be long — extract the full first sentence or up to ~120 chars. Strip trailing hashtags into the hashtags field.
+- Date: shown below the like count, e.g. "May 7" or "2 weeks ago" or "November 5, 2024". Convert relative dates to approximate if possible.
+- Hashtags: any #words in the caption or below it.
+
+VISUAL TAGS — generate 10-15 tags describing what you SEE in the IMAGE (not the UI). Focus on:
+- Clothing items (be specific: "white mesh top", "baggy cargo pants", "knee-high boots")
+- Hair colour/style ("platinum blonde", "waist-length dark hair", "buzz cut")
+- Colours dominant in the image ("red dominant", "monochrome", "warm golden tones")  
+- Setting/location ("rooftop NYC", "warehouse", "studio white background", "outdoor street")
+- Mood/aesthetic ("editorial", "candid", "grungy", "Y2K", "punk", "soft girl", "dark academia")
+- Body/pose ("overhead shot", "mirror selfie", "group of three", "lying down")
+- Props or notable objects ("cigarette", "American flag", "body paint", "dollar bills")
+- Photo style ("film grain", "double panel collage", "glitch art", "photo grid")
+
+Return ONLY a raw JSON object, no markdown, no explanation:
+{"username": "@handle or null", "caption": "caption text or null", "date": "date string or null", "hashtags": ["#tag1","#tag2"], "visual_tags": ["tag1","tag2",...], "is_social_screenshot": true}`;
+
   try {
-    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + geminiKey, {
+    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [
-        { text: 'This is a social media screenshot. Extract the post information and return ONLY a JSON object with these fields: {"username": "@handle or null", "caption": "post caption text or null", "date": "date string or null", "is_social_screenshot": true/false, "visual_tags": ["tag1","tag2",...8-12 descriptive tags about the visual content: colors, clothing, mood, setting, style]}. No explanation, just JSON.' },
-        { inline_data: { mime_type: file.type || 'image/jpeg', data: b64 } }
-      ]}]})
+      body: JSON.stringify({
+        contents: [{ parts: [
+          { text: prompt },
+          { inline_data: { mime_type: file.type || 'image/jpeg', data: b64 } }
+        ]}],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
+      })
     });
     var data = await res.json();
-    var txt = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0] && data.candidates[0].content.parts[0].text) || '';
-    var match = txt.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
-  } catch(e) { console.log('Gemini scrape error', e); }
+    var txt = (data.candidates?.[0]?.content?.parts?.[0]?.text) || '';
+    // Strip markdown code fences if present
+    txt = txt.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/,'').trim();
+    var m = txt.match(/\{[\s\S]*\}/);
+    if (m) {
+      var parsed = JSON.parse(m[0]);
+      // Clean username
+      if (parsed.username) parsed.username = parsed.username.replace(/^@/, '');
+      return parsed;
+    }
+  } catch(e) { console.warn('Gemini scrape error', e); }
   return null;
 }
 
@@ -1023,16 +1287,38 @@ function handleFiles(files) {
 
     var geminiKey = getGeminiKey();
 
-    // Step 1: crop all in parallel
-    document.getElementById('scrapeStatus').textContent = (skipped ? skipped + ' dupes skipped · ' : '') + 'Cropping…';
-    Promise.all(pendingFiles.map(function(f) { return fileToB64(f); })).then(function(origB64s) {
-      return Promise.all(pendingFiles.map(function(f, i) {
-        return cropScreenshot(f).then(function(cropped) {
-          pendingFiles[i] = cropped;
-          prev.children[i] && (prev.children[i].src = URL.createObjectURL(cropped));
-          return origB64s[i]; // use original b64 for scraping (full screenshot has more UI context)
+    // Step 1: analyse all files for crop bounds (fast, no UI yet)
+    document.getElementById('scrapeStatus').textContent = (skipped ? skipped + ' dupes skipped · ' : '') + 'Analysing…';
+    Promise.all(pendingFiles.map(analyseScreenshot)).then(function(analyses) {
+      // Step 2: show crop preview UI for each screenshot in sequence
+      var origFiles = pendingFiles.slice(); // originals for scraping
+      // Reset crop queue for this batch
+      cropQueue = [];
+      cropResolveQueue = [];
+      cropQueueIndex = 0;
+      var cropPromises = analyses.map(function(item, i) {
+        return new Promise(function(res) {
+          if (item.skip || (item.top === 0 && item.bottom === item.h)) {
+            res(origFiles[i]); // no crop needed
+          } else {
+            cropQueue.push(item);
+            cropResolveQueue.push(res);
+          }
         });
-      }));
+      });
+      // Start showing crop modals (if any need review)
+      if (cropQueue.length) {
+        showCropItem();
+      }
+      return Promise.all(cropPromises).then(function(croppedFiles) {
+        // Update pendingFiles and previews with cropped versions
+        croppedFiles.forEach(function(cf, i) {
+          pendingFiles[i] = cf;
+          if (prev.children[i]) prev.children[i].src = URL.createObjectURL(cf);
+        });
+        // origB64s: use original (full screenshot) for scraping so Gemini sees the UI chrome
+        return Promise.all(origFiles.map(fileToB64));
+      });
     }).then(function(b64s) {
       if (!geminiKey) {
         document.getElementById('scrapedResults').style.display = 'none';
@@ -1063,9 +1349,13 @@ function handleFiles(files) {
         row.appendChild(thumb);
         var meta = document.createElement('div');
         meta.style.cssText = 'flex:1;min-width:0;';
-        meta.innerHTML = '<div class="scraped-card-header"><span class="scraped-card-user">' + (info.username || 'unknown') + '</span></div>' +
+        var uname = info.username ? '@' + info.username.replace(/^@/,'') : 'unknown';
+        var dateStr = info.date || '';
+        var hashStr = (info.hashtags || []).slice(0, 5).join(' ');
+        meta.innerHTML = '<div class="scraped-card-header"><span class="scraped-card-user">' + uname + '</span>' +
+          (dateStr ? '<span style="font-size:9px;color:#bbb;margin-left:8px;letter-spacing:0.08em;">' + dateStr + '</span>' : '') + '</div>' +
           '<div class="scraped-card-caption">' + (info.caption || '') + '</div>' +
-          '<div class="scraped-card-meta">' + (info.date || '') + '</div>';
+          (hashStr ? '<div style="font-size:9px;color:#aaa;margin-top:3px;">' + hashStr + '</div>' : '');
         if (info.visual_tags && info.visual_tags.length) {
           var tagDiv = document.createElement('div');
           tagDiv.className = 'scraped-card-tags';
