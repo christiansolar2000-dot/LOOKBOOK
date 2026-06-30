@@ -953,7 +953,39 @@ function handleFiles(files) {
   });
 }
 
-buildPills();
-renderGrid();
+// Lock screen
+(function() {
+  var unlocked = localStorage.getItem('lb_unlocked') === '1';
+  if (!unlocked) {
+    var overlay = document.createElement('div');
+    overlay.id = 'lockOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;';
+    overlay.innerHTML = '<div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:8px;">Lookbook</div>' +
+      '<input id="pwInput" type="password" placeholder="password" style="border:none;border-bottom:1px solid #e8e8e8;font-size:13px;padding:6px 0;outline:none;text-align:center;width:180px;font-family:inherit;" autofocus>' +
+      '<div id="pwError" style="font-size:11px;color:#999;min-height:16px;font-style:italic;"></div>';
+    document.body.appendChild(overlay);
+    function tryUnlock() {
+      if (document.getElementById('pwInput').value === 'lookbook') {
+        localStorage.setItem('lb_unlocked', '1');
+        overlay.remove();
+        buildPills();
+        renderGrid();
+      } else {
+        document.getElementById('pwError').textContent = 'incorrect';
+        document.getElementById('pwInput').value = '';
+      }
+    }
+    document.getElementById('pwInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') tryUnlock(); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) tryUnlock(); });
+  } else {
+    buildPills();
+    renderGrid();
+  }
+})();
 
->
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('open');
+}
+</script>
+</body>
+</html>
