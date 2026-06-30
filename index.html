@@ -806,267 +806,95 @@ var pendingFiles = [];
 var scrapedData = []; // per-file scraped info
 
 function handleFiles(files) {
-  pendingFiles = Array.from(files).filter(function(f) { return f.type.indexOf('image/') === 0; });
+  var raw = Array.from(files).filter(function(f) { return f.type.indexOf('image/') === 0; });
   scrapedData = [];
   var prev = document.getElementById('dropPreviews');
   prev.innerHTML = '';
-  pendingFiles.forEach(function(f) {
-    var img = document.createElement('img');
-    img.src = URL.createObjectURL(f);
-    prev.appendChild(img);
-  });
-  document.getElementById('saveBtn').disabled = pendingFiles.length === 0;
+  document.getElementById('saveBtn').disabled = true;
   document.getElementById('scrapedResults').style.display = 'none';
   document.getElementById('scrapedCards').innerHTML = '';
+  document.getElementById('scrapeStatus').textContent = 'Checking for duplicates…';
+  document.getElementById('scrapedResults').style.display = '';
 
-  var geminiKey = getGeminiKey();
+  Promise.all(raw.map(isDuplicate)).then(function(dupeFlags) {
+    var skipped = dupeFlags.filter(Boolean).length;
+    pendingFiles = raw.filter(function(_, i) { return !dupeFlags[i]; });
+    if (!pendingFiles.length) {
+      document.getElementById('scrapeStatus').textContent = skipped + ' duplicate' + (skipped > 1 ? 's' : '') + ' skipped — nothing new to add.';
+      return;
+    }
+    if (skipped > 0) document.getElementById('scrapeStatus').textContent = skipped + ' duplicate' + (skipped > 1 ? 's' : '') + ' skipped.';
+    else document.getElementById('scrapeStatus').textContent = '';
 
-  // Process: crop then scrape
-  Promise.all(pendingFiles.map(function(f) { return fileToB64(f); })).then(function(b64s) {
-    return Promise.all(pendingFiles.map(function(f, i) {
-      return cropScreenshot(f).then(function(cropped) {
-        pendingFiles[i] = cropped;
-        // Update preview
-        prev.children[i] && (prev.children[i].src = URL.createObjectURL(cropped));
-        if (geminiKey) {
-          document.getElementById('scrapeStatus').textContent = 'Reading post info (' + (i+1) + '/' + pendingFiles.length + ')…';
-          document.getElementById('scrapedResults').style.display = '';
-          return fileToB64(cropped).then(function(cb64) {
-            return scrapePostInfo(f, b64s[i]).then(function(info) {
-              scrapedData[i] = info;
-              return info;
-            });
+    pendingFiles.forEach(function(f) {
+      var img = document.createElement('img');
+      img.src = URL.createObjectURL(f);
+      prev.appendChild(img);
+    });
+    document.getElementById('saveBtn').disabled = false;
+
+    var geminiKey = getGeminiKey();
+
+    // Step 1: crop all in parallel
+    document.getElementById('scrapeStatus').textContent = (skipped ? skipped + ' dupes skipped · ' : '') + 'Cropping…';
+    Promise.all(pendingFiles.map(function(f) { return fileToB64(f); })).then(function(origB64s) {
+      return Promise.all(pendingFiles.map(function(f, i) {
+        return cropScreenshot(f).then(function(cropped) {
+          pendingFiles[i] = cropped;
+          prev.children[i] && (prev.children[i].src = URL.createObjectURL(cropped));
+          return origB64s[i]; // use original b64 for scraping (full screenshot has more UI context)
+        });
+      }));
+    }).then(function(b64s) {
+      if (!geminiKey) {
+        document.getElementById('scrapedResults').style.display = 'none';
+        return;
+      }
+      // Step 2: scrape ALL in parallel
+      document.getElementById('scrapeStatus').textContent = 'Reading post info…';
+      document.getElementById('scrapedResults').style.display = '';
+      return Promise.all(pendingFiles.map(function(f, i) {
+        return scrapePostInfo(f, b64s[i]).then(function(info) {
+          scrapedData[i] = info;
+          return info;
+        });
+      }));
+    }).then(function(infos) {
+      if (!infos) return;
+      document.getElementById('scrapeStatus').textContent = pendingFiles.length + ' photo' + (pendingFiles.length > 1 ? 's' : '') + ' ready';
+      var cards = document.getElementById('scrapedCards');
+      cards.innerHTML = '';
+      pendingFiles.forEach(function(f, i) {
+        var info = scrapedData[i] || {};
+        var card = document.createElement('div');
+        card.className = 'scraped-card';
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
+        var thumb = document.createElement('img');
+        thumb.src = URL.createObjectURL(f);
+        row.appendChild(thumb);
+        var meta = document.createElement('div');
+        meta.style.cssText = 'flex:1;min-width:0;';
+        meta.innerHTML = '<div class="scraped-card-header"><span class="scraped-card-user">' + (info.username || 'unknown') + '</span></div>' +
+          '<div class="scraped-card-caption">' + (info.caption || '') + '</div>' +
+          '<div class="scraped-card-meta">' + (info.date || '') + '</div>';
+        if (info.visual_tags && info.visual_tags.length) {
+          var tagDiv = document.createElement('div');
+          tagDiv.className = 'scraped-card-tags';
+          info.visual_tags.forEach(function(t) {
+            var span = document.createElement('span');
+            span.className = 'scraped-card-tag';
+            span.textContent = t;
+            tagDiv.appendChild(span);
           });
+          meta.appendChild(tagDiv);
         }
-        return null;
+        row.appendChild(meta);
+        card.appendChild(row);
+        cards.appendChild(card);
       });
-    }));
-  }).then(function() {
-    if (!geminiKey) return;
-    // Group posts by matching username+caption (same post = carousel)
-    document.getElementById('scrapeStatus').textContent = 'Done — ' + pendingFiles.length + ' photo' + (pendingFiles.length > 1 ? 's' : '') + ' ready';
-    var cards = document.getElementById('scrapedCards');
-    cards.innerHTML = '';
-    pendingFiles.forEach(function(f, i) {
-      var info = scrapedData[i] || {};
-      var card = document.createElement('div');
-      card.className = 'scraped-card';
-      var preview = document.createElement('div');
-      preview.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
-      var thumb = document.createElement('img');
-      thumb.src = URL.createObjectURL(f);
-      preview.appendChild(thumb);
-      var meta = document.createElement('div');
-      meta.style.flex = '1';
-      meta.style.minWidth = '0';
-      meta.innerHTML = '<div class="scraped-card-header"><span class="scraped-card-user">' + (info.username || 'unknown') + '</span></div>' +
-        '<div class="scraped-card-caption">' + (info.caption || '') + '</div>' +
-        '<div class="scraped-card-meta">' + (info.date || '') + '</div>';
-      if (info.visual_tags && info.visual_tags.length) {
-        var tagDiv = document.createElement('div');
-        tagDiv.className = 'scraped-card-tags';
-        info.visual_tags.forEach(function(t) {
-          var span = document.createElement('span');
-          span.className = 'scraped-card-tag';
-          span.textContent = t;
-          tagDiv.appendChild(span);
-        });
-        meta.appendChild(tagDiv);
-      }
-      preview.appendChild(meta);
-      card.appendChild(preview);
-      cards.appendChild(card);
     });
   });
 }
 
-async function saveUpload() {
-  if (!pendingFiles.length) return;
-  var btn = document.getElementById('saveBtn');
-  var status = document.getElementById('uploadStatus');
-  btn.disabled = true;
-
-  var token = getGhToken();
-  if (!token) {
-    status.textContent = 'No GitHub token. Double-tap logo to add one.';
-    btn.disabled = false;
-    return;
-  }
-
-  var extraTags = document.getElementById('upTags').value.trim();
-  extraTags = extraTags ? extraTags.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [];
-  var manualUser = document.getElementById('upUser').value.trim();
-
-  var uploads = getUploads();
-  var allNums = SEED_POSTS.concat(uploads).map(function(p) { return parseInt(p.id) || 0; });
-  var nextNum = Math.max.apply(null, [0].concat(allNums)) + 1;
-
-  // Group files by post: same username+caption = same carousel
-  var groups = [];
-  pendingFiles.forEach(function(file, i) {
-    var info = scrapedData[i] || {};
-    var username = manualUser || (info.username ? info.username.replace('@','') : 'unknown');
-    var caption = info.caption || '';
-    var date = info.date || '';
-    var tags = (info.visual_tags || []).concat(extraTags).filter(function(v, j, a) { return a.indexOf(v) === j; });
-
-    // Try to match to existing group (same username + caption = same post/carousel)
-    var matched = false;
-    if (caption) {
-      for (var g = 0; g < groups.length; g++) {
-        if (groups[g].username === username && groups[g].caption === caption) {
-          groups[g].files.push(file);
-          groups[g].tags = groups[g].tags.concat(tags).filter(function(v,j,a){return a.indexOf(v)===j;});
-          matched = true;
-          break;
-        }
-      }
-    }
-    if (!matched) {
-      groups.push({ username: username, caption: caption, date: date, tags: tags, files: [file] });
-    }
-  });
-
-  var allNewPosts = [];
-  for (var g = 0; g < groups.length; g++) {
-    var group = groups[g];
-    var groupPosts = [];
-    for (var fi = 0; fi < group.files.length; fi++) {
-      var file = group.files[fi];
-      status.textContent = 'Uploading ' + (allNewPosts.length + 1) + ' of ' + pendingFiles.length + '…';
-      var id = String(nextNum).padStart(3, '0');
-      nextNum++;
-      var b64 = await fileToB64(file);
-      var ext = file.type === 'image/png' ? 'png' : 'jpg';
-      var ghPath = 'images/' + id + '.' + ext;
-      var imageUrl = '';
-      try {
-        var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-          method: 'PUT',
-          headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: 'add ' + ghPath, content: b64 })
-        });
-        imageUrl = 'https://raw.githubusercontent.com/' + GH_USER + '/' + GH_REPO + '/main/' + ghPath;
-      } catch(e) {
-        imageUrl = URL.createObjectURL(file);
-      }
-      groupPosts.push({ id: id, username: group.username, caption: group.caption, hashtags: [], post_date: group.date, visual_tags: group.tags, notes: '', image: imageUrl, _uploaded: true, set_members: [] });
-    }
-    // Link carousel members
-    if (groupPosts.length > 1) {
-      groupPosts.forEach(function(p, i) {
-        p.set_members = groupPosts.filter(function(_, j) { return j !== i; }).map(function(x) { return x.id; });
-      });
-    }
-    allNewPosts = allNewPosts.concat(groupPosts);
-  }
-
-  // Push uploads metadata to GitHub
-  status.textContent = 'Syncing…';
-  try {
-    var allUploads = uploads.concat(allNewPosts);
-    var metaB64 = btoa(unescape(encodeURIComponent(JSON.stringify(allUploads, null, 2))));
-    var shaRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/uploads_meta.json', {
-      headers: { 'Authorization': 'token ' + token }
-    });
-    var shaData = await shaRes.json();
-    var sha = shaData.sha || '';
-    await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/uploads_meta.json', {
-      method: 'PUT',
-      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'update uploads', content: metaB64, sha: sha })
-    });
-  } catch(e) { console.log('Meta sync error', e); }
-
-  uploads = uploads.concat(allNewPosts);
-  saveUploads(uploads);
-  buildPills();
-  renderGrid();
-  closeUpload();
-}
-
-// LOAD REMOTE UPLOADS
-async function loadRemoteUploads() {
-  try {
-    var r = await fetch('https://raw.githubusercontent.com/' + GH_USER + '/' + GH_REPO + '/main/uploads_meta.json?t=' + Date.now());
-    if (!r.ok) return;
-    var remote = await r.json();
-    var local = getUploads();
-    var localIds = local.map(function(p) { return p.id; });
-    var merged = local.concat(remote.filter(function(p) { return localIds.indexOf(p.id) < 0; }));
-    if (merged.length > local.length) { saveUploads(merged); buildPills(); renderGrid(); }
-  } catch(e) {}
-}
-
-// SETTINGS
-document.getElementById('navLogo').addEventListener('dblclick', function() {
-  document.getElementById('ghTokenInput').value = localStorage.getItem('lb_gh_token') || '';
-  document.getElementById('geminiInput').value = localStorage.getItem('lb_gemini_key') || '';
-  document.getElementById('settingsModal').classList.add('open');
-});
-function saveSettings() {
-  localStorage.setItem('lb_gh_token', document.getElementById('ghTokenInput').value.trim());
-  localStorage.setItem('lb_gemini_key', document.getElementById('geminiInput').value.trim());
-  document.getElementById('settingsStatus').textContent = 'Saved.';
-  setTimeout(function() {
-    document.getElementById('settingsModal').classList.remove('open');
-    document.getElementById('settingsStatus').textContent = '';
-  }, 800);
-}
-
-// PASSWORD
-var SITE_PASSWORD = 'lookbook2025';
-function checkLock() {
-  if (localStorage.getItem('lb_unlocked') === '1') {
-    document.getElementById('lockScreen').classList.add('hidden');
-    return;
-  }
-  // Show lock screen, hide everything else
-  document.querySelector('nav').style.display = 'none';
-  document.getElementById('explorePage').style.display = 'none';
-}
-document.getElementById('lockInput').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') {
-    if (this.value === SITE_PASSWORD) {
-      localStorage.setItem('lb_unlocked', '1');
-      document.getElementById('lockScreen').classList.add('hidden');
-      document.querySelector('nav').style.display = '';
-      document.getElementById('explorePage').style.display = '';
-      buildPills();
-      renderGrid();
-      loadRemoteUploads();
-    } else {
-      document.getElementById('lockError').textContent = 'incorrect';
-      this.value = '';
-      setTimeout(function() { document.getElementById('lockError').textContent = ''; }, 1500);
-    }
-  }
-});
-
-// DUPLICATE DETECTION
-function isDuplicate(file) {
-  return new Promise(function(resolve) {
-    var reader = new FileReader();
-    reader.onload = function() {
-      var b64 = reader.result.split(',')[1].slice(0, 200);
-      var allPosts = getAllPosts();
-      // Check if any existing post image starts with the same data
-      var dupe = allPosts.some(function(p) {
-        return p.image && p.image.indexOf(b64) >= 0;
-      });
-      resolve(dupe);
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-// INIT
-checkLock();
-if (localStorage.getItem('lb_unlocked') === '1') {
-  buildPills();
-  renderGrid();
-  loadRemoteUploads();
-}
-</script>
-</body>
-</html>
+>
