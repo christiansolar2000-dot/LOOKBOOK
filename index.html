@@ -71,9 +71,17 @@ nav {
 .card:hover img { opacity: 0.88; }
 .card-label {
   position: absolute; bottom: 0; left: 0; right: 0;
-  background: rgba(255,255,255,0.92); padding: 6px 8px;
-  font-size: 10px; color: var(--muted); opacity: 0; transition: opacity 0.2s;
+  background: rgba(255,255,255,0.94); padding: 9px 10px 8px;
+  opacity: 0; transition: opacity 0.2s;
+}
+.card-label-user {
+  font-size: 11px; font-weight: 700; color: #111; letter-spacing: 0.01em;
+  display: block; line-height: 1.2; margin-bottom: 1px;
+}
+.card-label-caption {
+  font-size: 10px; color: #555; font-style: italic;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block; line-height: 1.3;
 }
 .card:hover .card-label { opacity: 1; }
 .empty { display: none; text-align: center; padding: 100px 20px; color: var(--muted); font-size: 13px; }
@@ -95,12 +103,12 @@ nav {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
 }
 .lb-user {
-  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--muted); margin-bottom: 4px; cursor: pointer; display: inline-block; transition: color 0.15s;
+  font-size: 15px; font-weight: 700; color: var(--ink);
+  margin-bottom: 3px; cursor: pointer; display: inline-block; transition: color 0.15s; letter-spacing: 0.01em;
 }
-.lb-user:hover { color: var(--ink); }
-.lb-caption { font-size: 16px; color: var(--ink); line-height: 1.4; margin-bottom: 4px; }
-.lb-date { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.lb-user:hover { opacity: 0.7; }
+.lb-caption { font-size: 15px; font-weight: 700; font-style: italic; color: var(--ink); line-height: 1.3; margin-bottom: 3px; }
+.lb-date { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
 .lb-tags { display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px; justify-content: flex-end; }
 .lb-tag {
   font-size: 10px; padding: 3px 9px; background: var(--chip);
@@ -233,6 +241,24 @@ nav {
   .lb-tags { max-width: 100%; justify-content: flex-start; }
   .boards-grid { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
 }
+
+/* DELETE CONFIRM */
+.confirm-modal { position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;display:none;align-items:center;justify-content:center; }
+.confirm-modal.open { display:flex; }
+.confirm-box { background:#fff;padding:28px;max-width:320px;width:90%;text-align:center; }
+.confirm-box p { font-size:13px;color:#111;margin-bottom:6px;line-height:1.5; }
+.confirm-box .confirm-sub { font-size:11px;color:#999;font-style:italic;margin-bottom:20px; }
+.confirm-btns { display:flex;gap:10px;justify-content:center; }
+.confirm-btn { font-size:10px;letter-spacing:0.12em;text-transform:uppercase;padding:9px 20px;border:none;cursor:pointer;font-family:var(--f);transition:all 0.15s; }
+.confirm-btn-cancel { background:var(--chip);color:var(--muted); }
+.confirm-btn-cancel:hover { background:var(--faint); }
+.confirm-btn-delete { background:#c00;color:#fff; }
+.confirm-btn-delete:hover { background:#900; }
+
+/* SORT PAGE card drag */
+#sortCard { user-select:none; transition: transform 0.15s, opacity 0.15s; }
+#sortCard.dragging { transition: none; }
+
 </style>
 </head>
 <body>
@@ -241,6 +267,7 @@ nav {
   <span class="nav-logo" id="navLogo">Lookbook</span>
   <button class="nav-tab active" id="tabExplore" onclick="showExplore()">Explore</button>
   <button class="nav-tab" id="tabBoards" onclick="showBoards()">Boards</button>
+  <button class="nav-tab" id="tabSort" onclick="showSort()">Sort</button>
   <button class="nav-add" onclick="openUpload()">+ Add</button>
 </nav>
 
@@ -269,6 +296,28 @@ nav {
   </div>
 </div>
 
+
+<div id="sortPage" style="display:none; position:fixed; inset:0; background:#fff; z-index:400; display:none; flex-direction:column; align-items:center; justify-content:center;">
+  <div id="sortCard" style="position:relative; width:min(380px,90vw); touch-action:none;">
+    <div id="sortImgWrap" style="position:relative; width:100%; border-radius:0; overflow:hidden; background:#f2f2f2;">
+      <img id="sortImg" src="" alt="" style="width:100%; display:block; max-height:60vh; object-fit:contain;">
+    </div>
+    <div id="sortMeta" style="padding:14px 0 6px;">
+      <div id="sortUser" style="font-size:13px; font-weight:700; color:#111; letter-spacing:0.02em;"></div>
+      <div id="sortCaption" style="font-size:12px; color:#555; margin-top:2px; font-style:italic; line-height:1.4;"></div>
+    </div>
+  </div>
+  <div style="display:flex; gap:32px; margin-top:18px; align-items:center;">
+    <button onclick="sortSkip()" style="width:56px;height:56px;border-radius:50%;border:1.5px solid #e8e8e8;background:#fff;font-size:22px;cursor:pointer;color:#999;display:flex;align-items:center;justify-content:center;" title="Skip">✕</button>
+    <button onclick="sortDelete()" style="width:44px;height:44px;border-radius:50%;border:1.5px solid #fdd;background:#fff;font-size:16px;cursor:pointer;color:#c00;display:flex;align-items:center;justify-content:center;" title="Delete">🗑</button>
+    <button onclick="sortSave()" style="width:56px;height:56px;border-radius:50%;border:1.5px solid #111;background:#111;font-size:22px;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;" title="Add to board">+</button>
+  </div>
+  <div style="margin-top:14px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#bbb;">
+    <span id="sortProgress"></span>
+  </div>
+  <div id="sortDoneMsg" style="display:none;padding:60px 20px;text-align:center;color:#999;font-size:13px;">All caught up — nothing left to sort.</div>
+</div>
+
 <!-- LIGHTBOX -->
 <div class="lb" id="lb">
   <button class="lb-close" onclick="closeLb()">×</button>
@@ -287,7 +336,10 @@ nav {
     <div class="lb-notes-wrap">
       <input class="lb-notes" id="lbNotes" placeholder="add a note…" type="text">
     </div>
-    <button class="lb-board-btn" onclick="openBoardPicker()">+ Add to board</button>
+    <div style="display:flex;gap:10px;align-items:center;padding:0 24px;margin-top:12px;">
+    <button class="lb-board-btn" onclick="openBoardPicker()" style="margin:0;">+ Add to board</button>
+    <button class="lb-delete-btn" onclick="deleteFromLb()" style="margin-left:auto;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;background:none;border:1px solid #fdd;color:#c00;padding:6px 14px;cursor:pointer;font-family:var(--f);transition:all 0.15s;" onmouseover="this.style.background='#fdd'" onmouseout="this.style.background='none'">Delete photo</button>
+  </div>
     <div class="lb-section" id="lbSetSection" style="display:none">
       <div class="section-label">Series</div>
       <div class="thumb-row" id="lbSetStrip"></div>
@@ -300,6 +352,18 @@ nav {
     <div class="lb-section" id="lbRelatedSection" style="display:none">
       <div class="section-label">Related</div>
       <div class="thumb-row" id="lbRelatedStrip"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div class="confirm-modal" id="confirmModal">
+  <div class="confirm-box">
+    <p id="confirmMsg">Delete this photo?</p>
+    <div class="confirm-sub" id="confirmSub"></div>
+    <div class="confirm-btns">
+      <button class="confirm-btn confirm-btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="confirm-btn confirm-btn-delete" id="confirmOkBtn">Delete</button>
     </div>
   </div>
 </div>
@@ -374,17 +438,30 @@ function saveBoards(b) { localStorage.setItem('lb_boards', JSON.stringify(b)); }
 function showExplore() {
   document.getElementById('explorePage').style.display = '';
   document.getElementById('boardsPage').style.display = 'none';
+  document.getElementById('sortPage').style.display = 'none';
   document.getElementById('tabExplore').classList.add('active');
   document.getElementById('tabBoards').classList.remove('active');
+  document.getElementById('tabSort').classList.remove('active');
 }
 function showBoards() {
   document.getElementById('explorePage').style.display = 'none';
   document.getElementById('boardsPage').style.display = '';
+  document.getElementById('sortPage').style.display = 'none';
   document.getElementById('boardDetail').style.display = 'none';
   document.getElementById('boardsGrid').style.display = '';
   document.getElementById('tabExplore').classList.remove('active');
   document.getElementById('tabBoards').classList.add('active');
+  document.getElementById('tabSort').classList.remove('active');
   renderBoards();
+}
+function showSort() {
+  document.getElementById('explorePage').style.display = 'none';
+  document.getElementById('boardsPage').style.display = 'none';
+  document.getElementById('sortPage').style.display = 'flex';
+  document.getElementById('tabExplore').classList.remove('active');
+  document.getElementById('tabBoards').classList.remove('active');
+  document.getElementById('tabSort').classList.add('active');
+  initSort();
 }
 
 // PILLS
@@ -428,6 +505,28 @@ function getFiltered() {
   });
 }
 
+// INTERACTION LOG for randomized feed
+function getLog() { try { return JSON.parse(localStorage.getItem('lb_log') || '{}'); } catch(e) { return {}; } }
+function logInteraction(id, type) {
+  var log = getLog();
+  log[id] = log[id] || {};
+  log[id][type] = Date.now();
+  log[id].score = (log[id].score || 0) + (type === 'open' ? 1 : type === 'board' ? 3 : type === 'upload' ? 5 : 0);
+  localStorage.setItem('lb_log', JSON.stringify(log));
+}
+function getWeightedShuffled(posts) {
+  var log = getLog();
+  var now = Date.now();
+  var ONE_WEEK = 7 * 24 * 3600 * 1000;
+  var scored = posts.map(function(p) {
+    var entry = log[p.id] || {};
+    var recency = entry.score ? Math.max(0, 1 - (now - Math.max(entry.open || 0, entry.board || 0)) / ONE_WEEK) : 0;
+    var base = (entry.score || 0) * 0.4 + recency * 0.6;
+    return { post: p, weight: base + Math.random() * 0.5 };
+  });
+  return scored.sort(function(a, b) { return b.weight - a.weight; }).map(function(s) { return s.post; });
+}
+
 // GRID
 function renderGrid() {
   var grid = document.getElementById('grid');
@@ -435,7 +534,9 @@ function renderGrid() {
   var filtered = getFiltered();
   grid.innerHTML = '';
   empty.classList.toggle('show', filtered.length === 0);
-  filtered.forEach(function(p) { grid.appendChild(makeCard(p, function() { openLb(p.id); })); });
+  // Use weighted shuffle only for unfiltered home view
+  var ordered = (activeUser === 'all' && !activeSearch) ? getWeightedShuffled(filtered) : filtered;
+  ordered.forEach(function(p) { grid.appendChild(makeCard(p, function() { openLb(p.id); })); });
 }
 
 function makeCard(post, onClick) {
@@ -456,7 +557,16 @@ function makeCard(post, onClick) {
   }
   var label = document.createElement('div');
   label.className = 'card-label';
-  label.textContent = post.username + (post.caption ? ' · ' + post.caption : '');
+  var userSpan = document.createElement('span');
+  userSpan.className = 'card-label-user';
+  userSpan.textContent = '@' + post.username;
+  label.appendChild(userSpan);
+  if (post.caption) {
+    var capSpan = document.createElement('span');
+    capSpan.className = 'card-label-caption';
+    capSpan.textContent = post.caption;
+    label.appendChild(capSpan);
+  }
   card.appendChild(label);
   card.addEventListener('click', onClick);
   return card;
@@ -467,6 +577,7 @@ function openLb(id) {
   var post = getAllPosts().find(function(p) { return p.id === id; });
   if (!post) return;
   currentId = id;
+  logInteraction(id, 'open');
 
   document.getElementById('lbImg').src = post.image || '';
   document.querySelectorAll('.lb-censor').forEach(function(el) { el.remove(); });
@@ -668,6 +779,7 @@ function openBoardPicker() {
           board.postIds = board.postIds || [];
           board.postIds.push(currentId);
           saveBoards(boards);
+          logInteraction(currentId, 'board');
         }
         modal.classList.remove('open');
       };
@@ -951,6 +1063,171 @@ function handleFiles(files) {
       });
     });
   });
+}
+
+
+// CONFIRM MODAL
+var confirmCallback = null;
+function openConfirm(msg, sub, cb) {
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmSub').textContent = sub || '';
+  confirmCallback = cb;
+  document.getElementById('confirmOkBtn').onclick = function() { closeConfirm(); if (confirmCallback) confirmCallback(); };
+  document.getElementById('confirmModal').classList.add('open');
+}
+function closeConfirm() { document.getElementById('confirmModal').classList.remove('open'); confirmCallback = null; }
+
+// DELETE from lightbox (collection delete)
+function deleteFromLb() {
+  if (!currentId) return;
+  var post = getAllPosts().find(function(p) { return p.id === currentId; });
+  var isSeed = SEED_POSTS.some(function(p) { return p.id === currentId; });
+  if (isSeed) {
+    openConfirm(
+      'This is a built-in post and cannot be permanently deleted.',
+      'You can remove it from any boards, but it will remain in your collection.',
+      null
+    );
+    document.getElementById('confirmOkBtn').textContent = 'OK';
+    document.getElementById('confirmOkBtn').onclick = closeConfirm;
+    return;
+  }
+  openConfirm(
+    'Delete this photo?',
+    'It will be removed from all boards and your collection. This cannot be undone.',
+    function() {
+      var id = currentId;
+      closeLb();
+      // Remove from uploads
+      saveUploads(getUploads().filter(function(p) { return p.id !== id; }));
+      // Remove from all boards
+      var boards = getBoards();
+      boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== id; }); });
+      saveBoards(boards);
+      renderGrid();
+    }
+  );
+  document.getElementById('confirmOkBtn').textContent = 'Delete';
+}
+
+// SORT MODE
+var sortQueue = [];
+var sortIndex = 0;
+
+function initSort() {
+  var all = getAllPosts();
+  // Weighted random order same as home feed
+  sortQueue = getWeightedShuffled(all);
+  sortIndex = 0;
+  showSortCard();
+  initSortSwipe();
+}
+
+function showSortCard() {
+  var done = document.getElementById('sortDoneMsg');
+  var card = document.getElementById('sortCard');
+  if (sortIndex >= sortQueue.length) {
+    card.style.display = 'none';
+    done.style.display = 'block';
+    document.getElementById('sortProgress').textContent = '';
+    return;
+  }
+  done.style.display = 'none';
+  card.style.display = '';
+  card.style.transform = 'none';
+  card.style.opacity = '1';
+  var post = sortQueue[sortIndex];
+  document.getElementById('sortImg').src = post.image || '';
+  document.getElementById('sortUser').textContent = '@' + post.username;
+  document.getElementById('sortCaption').textContent = post.caption || '';
+  document.getElementById('sortProgress').textContent = (sortIndex + 1) + ' / ' + sortQueue.length;
+}
+
+function sortAnimateAndAdvance(dir, cb) {
+  var card = document.getElementById('sortCard');
+  card.style.transition = 'transform 0.28s ease, opacity 0.28s';
+  card.style.transform = 'translateX(' + (dir * 120) + 'px) rotate(' + (dir * 8) + 'deg)';
+  card.style.opacity = '0';
+  setTimeout(function() {
+    sortIndex++;
+    if (cb) cb();
+    showSortCard();
+  }, 280);
+}
+
+function sortSkip() { sortAnimateAndAdvance(-1, null); }
+
+function sortSave() {
+  var post = sortQueue[sortIndex];
+  if (!post) return;
+  currentId = post.id;
+  logInteraction(post.id, 'board');
+  openBoardPicker();
+  sortAnimateAndAdvance(1, null);
+}
+
+function sortDelete() {
+  var post = sortQueue[sortIndex];
+  if (!post) return;
+  var isSeed = SEED_POSTS.some(function(p) { return p.id === post.id; });
+  if (isSeed) {
+    openConfirm('This is a built-in post and cannot be deleted.', '', null);
+    document.getElementById('confirmOkBtn').textContent = 'OK';
+    document.getElementById('confirmOkBtn').onclick = closeConfirm;
+    return;
+  }
+  openConfirm(
+    'Delete this photo?',
+    'It will be removed from all boards and your collection permanently.',
+    function() {
+      var id = post.id;
+      saveUploads(getUploads().filter(function(p) { return p.id !== id; }));
+      var boards = getBoards();
+      boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== id; }); });
+      saveBoards(boards);
+      sortQueue.splice(sortIndex, 1);
+      showSortCard();
+    }
+  );
+  document.getElementById('confirmOkBtn').textContent = 'Delete';
+}
+
+// Swipe gesture for sort mode
+function initSortSwipe() {
+  var card = document.getElementById('sortCard');
+  var startX = 0, startY = 0, dx = 0;
+  var dragging = false;
+  function onStart(e) {
+    if (document.getElementById('sortPage').style.display === 'none') return;
+    var t = e.touches ? e.touches[0] : e;
+    startX = t.clientX; startY = t.clientY; dx = 0; dragging = true;
+    card.classList.add('dragging');
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    var t = e.touches ? e.touches[0] : e;
+    dx = t.clientX - startX;
+    var dy = t.clientY - startY;
+    if (Math.abs(dy) > Math.abs(dx) + 10) { dragging = false; card.style.transform = 'none'; return; }
+    e.preventDefault();
+    var rot = dx * 0.06;
+    card.style.transform = 'translateX(' + dx + 'px) rotate(' + rot + 'deg)';
+    card.style.opacity = String(Math.max(0.4, 1 - Math.abs(dx) / 300));
+  }
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    card.classList.remove('dragging');
+    if (dx > 80) { sortSave(); }
+    else if (dx < -80) { sortSkip(); }
+    else { card.style.transition = 'transform 0.2s, opacity 0.2s'; card.style.transform = 'none'; card.style.opacity = '1'; }
+  }
+  card.addEventListener('touchstart', onStart, { passive: true });
+  card.addEventListener('touchmove', onMove, { passive: false });
+  card.addEventListener('touchend', onEnd);
+  card.addEventListener('mousedown', onStart);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onEnd);
 }
 
 // Lock screen
