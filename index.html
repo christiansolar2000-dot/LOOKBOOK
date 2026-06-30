@@ -620,6 +620,7 @@ function makeCard(post, onClick) {
   }
   card.appendChild(label);
   card.addEventListener('click', onClick);
+  card._postId = post.id;
   return card;
 }
 
@@ -1509,85 +1510,118 @@ function recropFromLb() {
   var isSeed = SEED_POSTS.some(function(p) { return p.id === currentId; });
   var postId = currentId;
 
-  // Fetch the image as a blob so we can run crop analysis on it
-  var statusEl = document.querySelector('.lb-notes');
-  fetch(imgUrl).then(function(r) { return r.blob(); }).then(function(blob) {
-    var file = new File([blob], postId + '.jpg', { type: blob.type || 'image/jpeg' });
+  // Load via <img> element (avoids CORS fetch restriction on raw.githubusercontent.com)
+  var loader = new Image();
+  loader.crossOrigin = 'anonymous';
+  loader.onload = function() {
+    var w = loader.naturalWidth, h = loader.naturalHeight;
+    // Draw to canvas so we can read pixels + later export cropped blob
+    var fullCanvas = document.createElement('canvas');
+    fullCanvas.width = w; fullCanvas.height = h;
+    fullCanvas.getContext('2d').drawImage(loader, 0, 0);
 
-    analyseScreenshot(file).then(function(item) {
-      // Override: always show crop UI even if algorithm says skip
-      item.skip = false;
-      if (item.top === 0 && item.bottom === item.h) {
-        // No chrome detected — still show UI starting from 0/100%
-      }
+    // Convert canvas to blob → File for analyseScreenshot
+    fullCanvas.toBlob(function(blob) {
+      var file = new File([blob], postId + '.jpg', { type: 'image/jpeg' });
 
-      // Queue just this one image through the crop preview
-      cropQueue = [item];
-      cropResolveQueue = [function(croppedFile) {
-        // Re-upload the cropped file
-        fileToB64(croppedFile).then(function(b64) {
-          var token = getGhToken();
-          var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
-          var ghPath = 'images/' + postId + '.' + ext;
+      analyseScreenshot(file).then(function(item) {
+        item.skip = false; // always show crop UI
 
-          if (isSeed && token) {
-            // Seed post: push to GitHub (need SHA first)
-            fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-              headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-            }).then(function(r) { return r.json(); }).then(function(meta) {
-              return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-                method: 'PUT',
-                headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
+        cropQueue = [item];
+        cropResolveQueue = [function(croppedFile) {
+          // Get dataURL of the cropped result for immediate display
+          var reader = new FileReader();
+          reader.onload = function() {
+            var dataUrl = reader.result;
+            var b64 = dataUrl.split(',')[1];
+            var token = getGhToken();
+            var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
+            var ghPath = 'images/' + postId + '.' + ext;
+
+            // Show cropped image immediately in lightbox (no waiting for GitHub CDN)
+            document.getElementById('lbImg').src = dataUrl;
+
+            // Update the card in the grid immediately using dataURL
+            function updateGridCard(newSrc) {
+              document.querySelectorAll('.card img').forEach(function(img) {
+                // Find the card whose post matches this id
+                var card = img.closest('.card');
+                if (card && card._postId === postId) img.src = newSrc;
               });
-            }).then(function(r) {
-              if (r.ok) {
-                // Update lightbox image (bust cache with timestamp)
-                document.getElementById('lbImg').src = imgUrl + '?t=' + Date.now();
-                renderGrid();
-              }
-            }).catch(function(e) { console.warn('recrop push failed', e); });
-          } else {
-            // User upload: update in localStorage
-            var uploads = getUploads();
-            var idx = uploads.findIndex(function(p) { return p.id === postId; });
-            if (idx >= 0) {
-              // Store as dataURL in image field if no GitHub token
-              if (!token) {
-                var reader = new FileReader();
-                reader.onload = function() {
-                  uploads[idx].image = reader.result;
-                  saveUploads(uploads);
-                  document.getElementById('lbImg').src = reader.result;
-                  renderGrid();
-                };
-                reader.readAsDataURL(croppedFile);
-              } else {
-                // Has token — push to GitHub
-                fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-                  headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-                }).then(function(r) { return r.json(); }).then(function(meta) {
+            }
+
+            // Push to GitHub in background (seed posts + uploads with token)
+            if (token) {
+              fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+                headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+              }).then(function(r) { return r.json(); })
+                .then(function(meta) {
                   return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
                     method: 'PUT',
                     headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
                     body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
                   });
-                }).then(function() {
-                  document.getElementById('lbImg').src = imgUrl + '?t=' + Date.now();
-                  renderGrid();
-                });
+                }).then(function(r) {
+                  if (r.ok) console.log('recrop pushed to GitHub:', postId);
+                }).catch(function(e) { console.warn('recrop GitHub push failed', e); });
+            }
+
+            // For local uploads: persist dataURL so it survives refresh
+            if (!isSeed) {
+              var uploads = getUploads();
+              var idx = uploads.findIndex(function(p) { return p.id === postId; });
+              if (idx >= 0) {
+                uploads[idx].image = dataUrl;
+                saveUploads(uploads);
               }
             }
-          }
+
+            // Re-render grid so card picks up new image
+            renderGrid();
+          };
+          reader.readAsDataURL(croppedFile);
+        }];
+        cropQueueIndex = 0;
+        showCropItem();
+      });
+    }, 'image/jpeg', 0.93);
+  };
+  loader.onerror = function() {
+    // crossOrigin failed — try without (image will still display but canvas will be tainted)
+    // Fall back: just open crop UI using the currently-displayed lbImg
+    var lbImg = document.getElementById('lbImg');
+    var w = lbImg.naturalWidth, h = lbImg.naturalHeight;
+    var fallbackCanvas = document.createElement('canvas');
+    fallbackCanvas.width = w; fallbackCanvas.height = h;
+    try {
+      fallbackCanvas.getContext('2d').drawImage(lbImg, 0, 0);
+      fallbackCanvas.toBlob(function(blob) {
+        var file = new File([blob], postId + '.jpg', { type: 'image/jpeg' });
+        analyseScreenshot(file).then(function(item) {
+          item.skip = false;
+          cropQueue = [item];
+          cropResolveQueue = [function(croppedFile) {
+            var r2 = new FileReader();
+            r2.onload = function() {
+              document.getElementById('lbImg').src = r2.result;
+              if (!isSeed) {
+                var uploads = getUploads();
+                var idx = uploads.findIndex(function(p) { return p.id === postId; });
+                if (idx >= 0) { uploads[idx].image = r2.result; saveUploads(uploads); }
+              }
+              renderGrid();
+            };
+            r2.readAsDataURL(croppedFile);
+          }];
+          cropQueueIndex = 0;
+          showCropItem();
         });
-      }];
-      cropQueueIndex = 0;
-      showCropItem();
-    });
-  }).catch(function(e) {
-    console.warn('recrop fetch failed', e);
-    alert('Could not load image for cropping. It may be a cross-origin restriction.');
-  });
+      }, 'image/jpeg', 0.93);
+    } catch(e) {
+      alert('Cannot crop: browser blocked cross-origin canvas access. Try refreshing and cropping immediately after the image loads.');
+    }
+  };
+  loader.src = imgUrl;
 }
 
 // SORT MODE
