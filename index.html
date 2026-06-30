@@ -265,8 +265,8 @@ nav {
 /* CROP PREVIEW */
 .crop-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:800; flex-direction:column; align-items:center; justify-content:center; }
 .crop-modal-bg.open { display:flex; }
-.crop-box { position:relative; background:#000; max-width:min(420px,92vw); max-height:72vh; overflow:hidden; touch-action:none; }
-.crop-box img { display:block; width:100%; user-select:none; pointer-events:none; }
+.crop-box { position:relative; background:#000; max-width:min(420px,92vw); touch-action:none; }
+.crop-box img { display:block; width:100%; max-height:65vh; object-fit:contain; user-select:none; pointer-events:none; }
 .crop-overlay-top { position:absolute; top:0; left:0; right:0; background:rgba(0,0,0,0.55); pointer-events:none; }
 .crop-overlay-bottom { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.55); pointer-events:none; }
 .crop-handle {
@@ -1140,12 +1140,17 @@ function showCropItem() {
   cropImg.onload = function() {
     // Must wait for render before reading offsetHeight — use rAF to be sure
     requestAnimationFrame(function() {
-      var dispH = cropImg.offsetHeight;
-      var dispW = cropImg.offsetWidth;
-      if (!dispH) dispH = cropImg.naturalHeight; // fallback
+      // Use getBoundingClientRect for true rendered size after CSS constraints
+      var rect = cropImg.getBoundingClientRect();
+      var dispH = rect.height;
+      var dispW = rect.width;
+      // scaleY: how many display px per image px
       var scaleY = dispH / item.h;
       var topPx = Math.round(item.top * scaleY);
       var botPx = Math.round(item.bottom * scaleY);
+      // Clamp to display bounds
+      topPx = Math.max(0, Math.min(topPx, dispH - 10));
+      botPx = Math.max(topPx + 10, Math.min(botPx, dispH));
       cropCurrentBounds = { top: topPx, bottom: botPx, h: dispH, dispW: dispW, scaleY: scaleY, imgH: item.h };
       updateCropOverlays();
       initCropHandles(); // attach AFTER dimensions are known
@@ -1172,10 +1177,13 @@ function initCropHandles() {
   function makeDrag(handle, isTop) {
     function onMove(e) {
       e.preventDefault();
-      var rect = box.getBoundingClientRect();
+      // Always re-read box rect live during drag
+      var boxRect = document.getElementById('cropImg').getBoundingClientRect();
       var clientY = e.touches ? e.touches[0].clientY : e.clientY;
-      var y = Math.round(clientY - rect.top);
+      var y = Math.round(clientY - boxRect.top);
       var b = cropCurrentBounds;
+      // Update h in case it changed
+      b.h = boxRect.height;
       if (isTop) {
         b.top = Math.max(0, Math.min(y, b.bottom - 40));
       } else {
@@ -1210,9 +1218,17 @@ function initCropHandles() {
 function cropConfirm() {
   var b = cropCurrentBounds;
   var item = cropQueue[cropQueueIndex];
-  // Convert display px back to image px
-  var topImg = Math.round(b.top / b.scaleY);
-  var botImg = Math.round(b.bottom / b.scaleY);
+  // Re-read actual rendered size at confirm time (may differ from onload if scrolled/resized)
+  var rect = document.getElementById('cropImg').getBoundingClientRect();
+  var actualH = rect.height || b.h;
+  // Recalculate scaleY from current render size
+  var scaleY = actualH / item.h;
+  // Convert display px back to image px using current scale
+  var topImg = Math.round(b.top / scaleY);
+  var botImg = Math.round(b.bottom / scaleY);
+  // Clamp to image bounds
+  topImg = Math.max(0, Math.min(topImg, item.h - 10));
+  botImg = Math.max(topImg + 10, Math.min(botImg, item.h));
   var resolve = cropResolveQueue[cropQueueIndex];
   applyCrop(item.file, topImg, botImg, item.w, item.h).then(function(cropped) {
     resolve(cropped);
