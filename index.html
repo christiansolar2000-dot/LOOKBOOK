@@ -285,6 +285,10 @@ nav {
       <div class="thumb-row" id="lbUserStrip"></div>
       <button class="see-all" id="lbSeeAll"></button>
     </div>
+    <div class="lb-section" id="lbRelatedSection" style="display:none">
+      <div class="section-label">Related</div>
+      <div class="thumb-row" id="lbRelatedStrip"></div>
+    </div>
   </div>
 </div>
 
@@ -520,6 +524,28 @@ function openLb(id) {
     sa.onclick = function() { closeLb(); setUser(post.username); };
   } else { userSection.style.display = 'none'; }
 
+  // Related photos — posts sharing visual tags
+  var relatedSection = document.getElementById('lbRelatedSection');
+  var relatedStrip = document.getElementById('lbRelatedStrip');
+  relatedStrip.innerHTML = '';
+  var postTags = (post.visual_tags || []).map(function(t) { return t.toLowerCase(); });
+  var related = getAllPosts().filter(function(p) {
+    if (p.id === id) return false;
+    var pTags = (p.visual_tags || []).map(function(t) { return t.toLowerCase(); });
+    return postTags.some(function(t) { return pTags.indexOf(t) >= 0; });
+  });
+  related.sort(function(a, b) {
+    var aTags = (a.visual_tags || []).map(function(t) { return t.toLowerCase(); });
+    var bTags = (b.visual_tags || []).map(function(t) { return t.toLowerCase(); });
+    var aMatch = postTags.filter(function(t) { return aTags.indexOf(t) >= 0; }).length;
+    var bMatch = postTags.filter(function(t) { return bTags.indexOf(t) >= 0; }).length;
+    return bMatch - aMatch;
+  });
+  if (related.length) {
+    relatedSection.style.display = '';
+    related.slice(0, 12).forEach(function(p) { relatedStrip.appendChild(makeThumb(p.image, function() { openLb(p.id); })); });
+  } else { relatedSection.style.display = 'none'; }
+
   document.getElementById('lb').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
@@ -663,16 +689,90 @@ dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('o
 dropZone.addEventListener('drop', function(e) { e.preventDefault(); dropZone.classList.remove('over'); handleFiles(e.dataTransfer.files); });
 fileInput.addEventListener('change', function() { handleFiles(fileInput.files); });
 
+// Detect if image is a social media screenshot and crop out the UI
+function cropScreenshot(file) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function() {
+      var w = img.width, h = img.height;
+      // Heuristic: tall portrait image (aspect ratio > 1.5) likely a screenshot
+      var isScreenshot = (h / w) > 1.5;
+      if (!isScreenshot) { resolve(file); URL.revokeObjectURL(url); return; }
+      // Scan for the photo bounds using a canvas
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      var data = ctx.getImageData(0, 0, w, h).data;
+
+      function isDark(y, threshold) {
+        // Sample 5 pixels across the row
+        var count = 0;
+        for (var x = Math.floor(w*0.1); x < Math.floor(w*0.9); x += Math.floor(w*0.2)) {
+          var i = (y * w + x) * 4;
+          var brightness = (data[i] + data[i+1] + data[i+2]) / 3;
+          if (brightness < threshold) count++;
+        }
+        return count >= 3;
+      }
+
+      // Find top: scan down from 10% to find where dark UI ends and photo begins
+      var topCrop = Math.floor(h * 0.08);
+      var darkThreshold = 60;
+      // Look for transition from dark header to bright photo content
+      for (var y = Math.floor(h * 0.05); y < Math.floor(h * 0.35); y++) {
+        if (!isDark(y, darkThreshold) && isDark(y - 1, darkThreshold)) {
+          topCrop = y;
+          break;
+        }
+      }
+
+      // Find bottom: scan up from 85% to find where photo ends and dark UI bar starts
+      var bottomCrop = Math.floor(h * 0.88);
+      for (var y2 = Math.floor(h * 0.88); y2 > Math.floor(h * 0.5); y2--) {
+        if (!isDark(y2, darkThreshold) && isDark(y2 + 1, darkThreshold)) {
+          bottomCrop = y2;
+          break;
+        }
+      }
+
+      var cropH = bottomCrop - topCrop;
+      if (cropH < h * 0.3) { resolve(file); URL.revokeObjectURL(url); return; }
+
+      var out = document.createElement('canvas');
+      out.width = w; out.height = cropH;
+      out.getContext('2d').drawImage(img, 0, topCrop, w, cropH, 0, 0, w, cropH);
+      URL.revokeObjectURL(url);
+      out.toBlob(function(blob) {
+        resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.92);
+    };
+    img.src = url;
+  });
+}
+
 function handleFiles(files) {
   pendingFiles = Array.from(files).filter(function(f) { return f.type.indexOf('image/') === 0; });
   var prev = document.getElementById('dropPreviews');
   prev.innerHTML = '';
+  // Show originals as preview while processing
   pendingFiles.forEach(function(f) {
     var img = document.createElement('img');
     img.src = URL.createObjectURL(f);
     prev.appendChild(img);
   });
   document.getElementById('saveBtn').disabled = pendingFiles.length === 0;
+  // Auto-crop screenshots in the background and update pendingFiles
+  Promise.all(pendingFiles.map(cropScreenshot)).then(function(cropped) {
+    pendingFiles = cropped;
+    prev.innerHTML = '';
+    pendingFiles.forEach(function(f) {
+      var img = document.createElement('img');
+      img.src = URL.createObjectURL(f);
+      prev.appendChild(img);
+    });
+  });
 }
 
 function fileToB64(file) {
