@@ -709,7 +709,26 @@ function openLb(id) {
   logInteraction(id, 'open');
 
   var storedCrop = getCrop(id);
-  document.getElementById('lbImg').src = storedCrop || post.image || '';
+  var imgSrc = storedCrop || post.image || '';
+  document.getElementById('lbImg').src = imgSrc;
+  // Pre-fetch image as blob so recrop can access pixels without CORS issues
+  window._lbCurrentBlob = null;
+  window._lbCurrentPostId = id;
+  if (imgSrc.startsWith('data:')) {
+    // Already a dataURL — convert inline
+    fetch(imgSrc).then(function(r) { return r.blob(); }).then(function(b) {
+      if (window._lbCurrentPostId === id) window._lbCurrentBlob = b;
+    }).catch(function(){});
+  } else {
+    fetch(imgSrc).then(function(r) {
+      if (!r.ok) throw new Error('fetch failed');
+      return r.blob();
+    }).then(function(b) {
+      if (window._lbCurrentPostId === id) window._lbCurrentBlob = b;
+    }).catch(function(){
+      // fetch blocked (e.g. mixed content) — blob stays null, recrop falls back
+    });
+  }
   document.querySelectorAll('.lb-censor').forEach(function(el) { el.remove(); });
   if (post.censor_boxes) {
     post.censor_boxes.forEach(function(box) {
@@ -1658,52 +1677,40 @@ function recropFromLb() {
     });
   }
 
-  // Strategy: load fresh copy with crossOrigin=anonymous so canvas isn't tainted.
-  // GitHub raw.githubusercontent.com supports CORS when crossOrigin is set BEFORE src.
-  var loader = new Image();
-  loader.crossOrigin = 'anonymous';
-  loader.onload = function() {
-    var w = loader.naturalWidth, h = loader.naturalHeight;
-    var canvas = document.createElement('canvas');
-    canvas.width = w; canvas.height = h;
-    try {
-      canvas.getContext('2d').drawImage(loader, 0, 0);
-      canvas.toBlob(function(blob) {
-        runCropUI(new File([blob], postId + '.jpg', { type: 'image/jpeg' }), w, h);
-      }, 'image/jpeg', 0.95);
-    } catch(e) {
-      // Canvas tainted despite crossOrigin — use stored crop or lbImg directly
-      useLbImgFallback();
-    }
-  };
-  loader.onerror = function() { useLbImgFallback(); };
-
-  function useLbImgFallback() {
-    // If we have a stored dataURL crop, use that (it's already same-origin)
-    var stored = getCrop(postId);
-    var srcToUse = stored || null;
-    var lbImg = document.getElementById('lbImg');
-
-    var fb = new Image();
-    fb.onload = function() {
-      var w = fb.naturalWidth, h = fb.naturalHeight;
+  // Use pre-fetched blob from openLb if available (no CORS issues)
+  function startCropFromBlob(blob) {
+    var blobUrl = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function() {
+      var w = img.naturalWidth, h = img.naturalHeight;
       var canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
-      try {
-        canvas.getContext('2d').drawImage(fb, 0, 0);
-        canvas.toBlob(function(blob) {
-          runCropUI(new File([blob], postId + '.jpg', { type: 'image/jpeg' }), w, h);
-        }, 'image/jpeg', 0.95);
-      } catch(e2) {
-        alert('Cannot access image pixels due to browser security restrictions. Try opening the image in a new tab first, or re-upload it.');
-      }
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      URL.revokeObjectURL(blobUrl);
+      canvas.toBlob(function(b) {
+        runCropUI(new File([b], postId + '.jpg', { type: 'image/jpeg' }), w, h);
+      }, 'image/jpeg', 0.95);
     };
-    // Use dataURL if available (no CORS issue), else try lbImg src
-    fb.src = srcToUse || lbImg.src;
+    img.onerror = function() { URL.revokeObjectURL(blobUrl); tryFetchFallback(); };
+    img.src = blobUrl;
   }
 
-  // Add cache-bust to force fresh load with CORS headers
-  loader.src = imgUrl + (imgUrl.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+  function tryFetchFallback() {
+    // Try fetching fresh — works for dataURLs and sometimes for GitHub raw
+    var src = getCrop(postId) || imgUrl;
+    fetch(src).then(function(r) {
+      if (!r.ok) throw new Error();
+      return r.blob();
+    }).then(startCropFromBlob).catch(function() {
+      alert('Could not load image for cropping. Try re-uploading this photo.');
+    });
+  }
+
+  if (window._lbCurrentBlob && window._lbCurrentPostId === postId) {
+    startCropFromBlob(window._lbCurrentBlob);
+  } else {
+    tryFetchFallback();
+  }
 }
 
 // ── RETAG ────────────────────────────────────────────────────
