@@ -414,7 +414,7 @@ nav {
   </div>
   <div class="crop-actions">
     <button class="crop-btn crop-btn-cancel" onclick="cropCancel()">Skip crop</button>
-    <button class="crop-btn crop-btn-ok" onclick="cropConfirm()">Use this crop</button>
+    <button class="crop-btn crop-btn-ok" id="cropConfirmBtn" onclick="cropConfirm()">Use this crop</button>
   </div>
   <div class="crop-counter" id="cropCounter"></div>
 </div>
@@ -1263,6 +1263,13 @@ function showCropItem() {
   document.getElementById('cropCounter').textContent =
     (cropQueue.length > 1) ? (cropQueueIndex + 1) + ' of ' + cropQueue.length : '';
 
+  // Reset bounds for the new item so stale values from a previous item in
+  // the queue can never leak in, and disable confirm until real bounds are
+  // computed (belt-and-braces on top of the fallback guard in cropConfirm).
+  cropCurrentBounds = { top: 0, bottom: 0, h: 0 };
+  var confirmBtn = document.getElementById('cropConfirmBtn');
+  if (confirmBtn) confirmBtn.disabled = true;
+
   // Support both file-based and srcUrl-based items
   var objUrl = item.srcUrl || URL.createObjectURL(item.file);
   var needsRevoke = !item.srcUrl;
@@ -1283,6 +1290,7 @@ function showCropItem() {
       cropCurrentBounds = { top: topPx, bottom: botPx, h: dispH, dispW: dispW, scaleY: scaleY, imgH: item.h };
       updateCropOverlays();
       initCropHandles(); // attach AFTER dimensions are known
+      if (confirmBtn) confirmBtn.disabled = false;
     });
     if (needsRevoke) URL.revokeObjectURL(objUrl);
   };
@@ -1348,16 +1356,27 @@ function cropConfirm() {
   var b = cropCurrentBounds;
   var item = cropQueue[cropQueueIndex];
   var cropImgEl = document.getElementById('cropImg');
-  // Get true rendered dimensions right now
-  var rect = cropImgEl.getBoundingClientRect();
-  var renderedH = rect.height || b.h;
-  // Natural image dimensions
+  var topImg, botImg;
   var naturalH = cropImgEl.naturalHeight || item.h;
-  // Scale: display px → image px
-  var scaleY = renderedH > 0 ? (naturalH / renderedH) : 1;
-  // Convert handle positions (display px) to image px
-  var topImg = Math.round(b.top * scaleY);
-  var botImg = Math.round(b.bottom * scaleY);
+  if (!b || !b.h) {
+    // cropCurrentBounds hasn't been initialized yet (the image-load + rAF
+    // handshake in showCropItem hasn't completed — e.g. confirm tapped
+    // immediately, or on a slow device). Falling back to the display-px
+    // math here would use stale {top:0,bottom:0,h:0} and silently crop the
+    // image down to a few px. Use the already-computed image-space bounds
+    // (auto-detected, or full frame) instead — always safe.
+    topImg = item.top;
+    botImg = item.bottom;
+  } else {
+    // Get true rendered dimensions right now
+    var rect = cropImgEl.getBoundingClientRect();
+    var renderedH = rect.height || b.h;
+    // Scale: display px → image px
+    var scaleY = renderedH > 0 ? (naturalH / renderedH) : 1;
+    // Convert handle positions (display px) to image px
+    topImg = Math.round(b.top * scaleY);
+    botImg = Math.round(b.bottom * scaleY);
+  }
   topImg = Math.max(0, Math.min(topImg, naturalH - 10));
   botImg = Math.max(topImg + 10, Math.min(botImg, naturalH));
   var resolve = cropResolveQueue[cropQueueIndex];
