@@ -664,8 +664,108 @@ function saveCrop(id, dataUrl) {
 }
 function getCrop(id) { return getCrops()[id] || null; }
 
-function getBoards() { return JSON.parse(localStorage.getItem('lb_boards') || '[]'); }
-function saveBoards(b) { localStorage.setItem('lb_boards', JSON.stringify(b)); }
+var BOARDS = [];
+var boardsReady = false;
+
+// Boards were the last piece still using pure localStorage — this brings
+// them in line with posts.json's architecture. Because boards have been
+// diverging across devices for a while (real board data exists on more than
+// one device already), the very first sync needs a conscious choice rather
+// than silently picking a winner — see the confirm() below.
+async function loadAllBoards() {
+  try {
+    var cached = localStorage.getItem('lb_boards_cache') || localStorage.getItem('lb_boards');
+    if (cached) BOARDS = JSON.parse(cached);
+  } catch(e) { /* ignore corrupt cache */ }
+
+  var token = getGhToken();
+  var headers = { 'Accept': 'application/vnd.github.v3+json' };
+  if (token) headers['Authorization'] = 'token ' + token;
+  try {
+    var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/boards.json', { headers: headers, cache: 'no-store' });
+    var remoteData = null;
+    if (res.ok) {
+      var meta = await res.json();
+      var jsonStr = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+      remoteData = JSON.parse(jsonStr);
+    }
+    // Treat "doesn't exist" and "exists but empty" the same way for migration
+    // purposes — an empty remote is functionally un-synced from the user's
+    // point of view, and silently adopting it would wipe a device's real
+    // local boards without ever asking.
+    if (res.status === 404 || (Array.isArray(remoteData) && remoteData.length === 0)) {
+      var localBoards = [];
+      try { localBoards = JSON.parse(localStorage.getItem('lb_boards') || localStorage.getItem('lb_boards_cache') || '[]'); } catch(e) {}
+      if (localBoards.length && token) {
+        var msg = 'Boards have never been synced across devices before. This device has ' + localBoards.length + ' board(s) saved locally.\n\nMake these the permanent, cross-device version now?\n\nIf you have different or additional boards on another device, cancel and open this update there first instead — otherwise those boards will need to be recreated by hand.';
+        if (confirm(msg)) {
+          BOARDS = localBoards;
+          await syncBoardsToGitHub();
+        } else if (Array.isArray(remoteData)) {
+          BOARDS = remoteData;
+          localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
+        }
+      } else if (Array.isArray(remoteData)) {
+        BOARDS = remoteData;
+        localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
+      }
+    } else if (Array.isArray(remoteData)) {
+      BOARDS = remoteData;
+      localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
+    }
+  } catch(e) {
+    console.warn('Could not fetch boards.json from GitHub — using local cache (may be stale)', e);
+  }
+  boardsReady = true;
+}
+
+async function syncBoardsToGitHub(_isRetry) {
+  localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
+  var token = getGhToken();
+  if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
+  try {
+    var getRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/boards.json', {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+      cache: 'no-store'
+    });
+    var sha = null;
+    if (getRes.ok) {
+      var meta = await getRes.json();
+      sha = meta.sha;
+    } else if (getRes.status !== 404) {
+      throw new Error('Could not read current boards.json (HTTP ' + getRes.status + ')');
+    }
+    var jsonStr = JSON.stringify(BOARDS);
+    var b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+    var payload = { message: 'Update boards.json', content: b64 };
+    if (sha) payload.sha = sha;
+    var putRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/boards.json', {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!putRes.ok) {
+      if (putRes.status === 409 && !_isRetry) {
+        return syncBoardsToGitHub(true);
+      }
+      var errBody = await putRes.json().catch(function(){ return {}; });
+      throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
+    }
+    return { ok: true };
+  } catch(e) {
+    console.error('boards.json sync failed', e);
+    return { ok: false, reason: e.message };
+  }
+}
+
+function getBoards() { return BOARDS; }
+function saveBoards(b) {
+  BOARDS = b;
+  return syncBoardsToGitHub().then(function(r) {
+    if (!r.ok) console.warn('Board change not permanently synced:', r.reason);
+    return r;
+  });
+}
 
 // NAV
 function showExplore() {
@@ -1030,7 +1130,9 @@ function closeBoard() {
 }
 function deleteCurrentBoard() {
   if (!currentBoardId || !confirm('Delete this board?')) return;
-  saveBoards(getBoards().filter(function(b) { return b.id !== currentBoardId; }));
+  saveBoards(getBoards().filter(function(b) { return b.id !== currentBoardId; })).then(function(r) {
+    if (!r.ok) alert('This board was removed here, but the deletion did not sync permanently:\n\n' + r.reason + '\n\nIt may still appear on other devices. Try again, or check your GitHub token in Settings.');
+  });
   closeBoard();
 }
 
@@ -2442,11 +2544,18 @@ function initSortSwipe() {
       var cached = localStorage.getItem('lb_posts_cache');
       if (cached) SEED_POSTS = JSON.parse(cached);
     } catch(e) {}
+    try {
+      var cachedBoards = localStorage.getItem('lb_boards_cache') || localStorage.getItem('lb_boards');
+      if (cachedBoards) BOARDS = JSON.parse(cachedBoards);
+    } catch(e) {}
     buildPills(); renderGrid();
-    // ...then fetch the canonical, up-to-date list from GitHub and re-render.
+    // ...then fetch the canonical, up-to-date lists from GitHub and re-render.
     // This is what makes every device converge on the same data, the same
-    // way posts 1-120 always did — now true for every post.
+    // way posts 1-120 always did — now true for every post, and for boards.
     loadAllPosts().then(function() { buildPills(); renderGrid(); });
+    loadAllBoards().then(function() {
+      if (document.getElementById('boardsPage').style.display !== 'none') renderBoards();
+    });
   }
   if (!unlocked) {
     var overlay = document.createElement('div');
