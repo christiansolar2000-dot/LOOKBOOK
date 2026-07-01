@@ -1527,7 +1527,34 @@ async function saveUpload() {
   var extraTags = (document.getElementById('upTags').value || '').split(',').map(function(t) { return t.trim(); }).filter(Boolean);
   var manualUser = (document.getElementById('upUser').value || '').trim().replace(/^@/, '');
   var uploads = getUploads();
-  var nextId = 121 + uploads.length;
+
+  // Determine the true next ID from the actual repo state, not just this
+  // device's local upload count — the local count is meaningless across
+  // devices/sessions and silently collides with real existing IDs (this is
+  // the likely root cause behind IDs 061-078 ending up with mismatched
+  // images: a collided ID kept its old image while getting new metadata).
+  var nextId = 121 + uploads.length; // fallback if we can't reach GitHub
+  if (token) {
+    try {
+      status.textContent = 'Checking existing IDs…';
+      var listRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images', {
+        headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+      });
+      if (listRes.ok) {
+        var files = await listRes.json();
+        var maxId = 0;
+        files.forEach(function(f) {
+          var m = f.name.match(/^(\d+)\.(jpg|jpeg|png)$/i);
+          if (m) maxId = Math.max(maxId, parseInt(m[1], 10));
+        });
+        if (maxId > 0) nextId = Math.max(nextId, maxId + 1);
+      }
+    } catch(e) {
+      console.warn('Could not verify next ID against GitHub, falling back to local count', e);
+    }
+  }
+  status.textContent = 'Saving…';
+
   var errors = 0;
   for (var i = 0; i < pendingFiles.length; i++) {
     var f = pendingFiles[i];
@@ -1546,22 +1573,34 @@ async function saveUpload() {
     };
     if (token) {
       try {
+        // Confirm this exact path is genuinely free before writing — belt
+        // and braces on top of the maxId check above (handles races with
+        // other devices uploading concurrently).
+        var existsRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images/' + id + '.' + ext, {
+          headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+        });
+        if (existsRes.ok) {
+          // Path already has content — do NOT push, this would either be
+          // silently rejected (protecting the old file) or, worse, overwrite
+          // it if we ever start passing sha here. Skip and flag as an error.
+          throw new Error('ID ' + id + ' already exists on GitHub — refusing to overwrite');
+        }
         var ghRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images/' + id + '.' + ext, {
           method: 'PUT',
           headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: 'Add image ' + id, content: b64 })
         });
-        if (!ghRes.ok) errors++;
-      } catch(e) { errors++; }
+        if (!ghRes.ok) { errors++; continue; }
+      } catch(e) { console.error('upload push failed for', id, e); errors++; continue; }
     }
     uploads.push(post);
   }
   saveUploads(uploads);
   resetSessionOrder();
   buildPills(); renderGrid();
-  status.textContent = errors ? (pendingFiles.length - errors) + ' saved, ' + errors + ' failed to push to GitHub.' : pendingFiles.length + ' saved!';
+  status.textContent = errors ? (pendingFiles.length - errors) + ' saved, ' + errors + ' failed (see console) — not added to avoid corrupting existing posts.' : pendingFiles.length + ' saved!';
   pendingFiles = []; scrapedData = [];
-  setTimeout(closeUpload, 1800);
+  setTimeout(closeUpload, 2200);
 }
 
 function handleFiles(files) {
