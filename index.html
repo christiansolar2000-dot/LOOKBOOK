@@ -1161,7 +1161,27 @@ function analyseScreenshot(file) {
 function applyCrop(file, top, bottom, w, h) {
   return new Promise(function(resolve) {
     var img = new Image();
-    var url = URL.createObjectURL(file);
+    // Use the already-loaded cropImg if available (avoids re-fetch / CORS)
+    var cropImgEl = document.getElementById('cropImg');
+    if (cropImgEl && cropImgEl.complete && cropImgEl.naturalWidth > 0) {
+      var actualW = cropImgEl.naturalWidth;
+      var actualH = cropImgEl.naturalHeight;
+      // Re-scale top/bottom from display coords to actual image coords
+      // (cropCurrentBounds are in display px, need to convert via actual image size)
+      var cropH = bottom - top;
+      var out = document.createElement('canvas');
+      out.width = actualW; out.height = cropH;
+      try {
+        out.getContext('2d').drawImage(cropImgEl, 0, top, actualW, cropH, 0, 0, actualW, cropH);
+        out.toBlob(function(blob) {
+          resolve(new File([blob], 'cropped.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.93);
+        return;
+      } catch(e) { /* tainted — fall through to file-based */ }
+    }
+    // Fallback: load from file
+    var url = file ? URL.createObjectURL(file) : null;
+    if (!url) { resolve(file); return; }
     img.onload = function() {
       var cropH = bottom - top;
       var out = document.createElement('canvas');
@@ -1169,7 +1189,7 @@ function applyCrop(file, top, bottom, w, h) {
       out.getContext('2d').drawImage(img, 0, top, w, cropH, 0, 0, w, cropH);
       URL.revokeObjectURL(url);
       out.toBlob(function(blob) {
-        resolve(new File([blob], file.name.replace(/\.[^.]+$/, '') + '_cropped.jpg', { type: 'image/jpeg' }));
+        resolve(new File([blob], 'cropped.jpg', { type: 'image/jpeg' }));
       }, 'image/jpeg', 0.93);
     };
     img.src = url;
@@ -1201,7 +1221,9 @@ function showCropItem() {
   document.getElementById('cropCounter').textContent =
     (cropQueue.length > 1) ? (cropQueueIndex + 1) + ' of ' + cropQueue.length : '';
 
-  var objUrl = URL.createObjectURL(item.file);
+  // Support both file-based and srcUrl-based items
+  var objUrl = item.srcUrl || URL.createObjectURL(item.file);
+  var needsRevoke = !item.srcUrl;
   cropImg.onload = function() {
     // Must wait for render before reading offsetHeight — use rAF to be sure
     requestAnimationFrame(function() {
@@ -1220,7 +1242,7 @@ function showCropItem() {
       updateCropOverlays();
       initCropHandles(); // attach AFTER dimensions are known
     });
-    URL.revokeObjectURL(objUrl);
+    if (needsRevoke) URL.revokeObjectURL(objUrl);
   };
   cropImg.src = objUrl;
   modal.classList.add('open');
@@ -1283,19 +1305,22 @@ function initCropHandles() {
 function cropConfirm() {
   var b = cropCurrentBounds;
   var item = cropQueue[cropQueueIndex];
-  // Re-read actual rendered size at confirm time (may differ from onload if scrolled/resized)
-  var rect = document.getElementById('cropImg').getBoundingClientRect();
-  var actualH = rect.height || b.h;
-  // Recalculate scaleY from current render size
-  var scaleY = actualH / item.h;
-  // Convert display px back to image px using current scale
-  var topImg = Math.round(b.top / scaleY);
-  var botImg = Math.round(b.bottom / scaleY);
-  // Clamp to image bounds
-  topImg = Math.max(0, Math.min(topImg, item.h - 10));
-  botImg = Math.max(topImg + 10, Math.min(botImg, item.h));
+  var cropImgEl = document.getElementById('cropImg');
+  // Get true rendered dimensions right now
+  var rect = cropImgEl.getBoundingClientRect();
+  var renderedH = rect.height || b.h;
+  // Natural image dimensions
+  var naturalH = cropImgEl.naturalHeight || item.h;
+  // Scale: display px → image px
+  var scaleY = renderedH > 0 ? (naturalH / renderedH) : 1;
+  // Convert handle positions (display px) to image px
+  var topImg = Math.round(b.top * scaleY);
+  var botImg = Math.round(b.bottom * scaleY);
+  topImg = Math.max(0, Math.min(topImg, naturalH - 10));
+  botImg = Math.max(topImg + 10, Math.min(botImg, naturalH));
   var resolve = cropResolveQueue[cropQueueIndex];
-  applyCrop(item.file, topImg, botImg, item.w, item.h).then(function(cropped) {
+  // Pass null for file — applyCrop will draw from cropImgEl directly
+  applyCrop(item.file, topImg, botImg, cropImgEl.naturalWidth || item.w, naturalH).then(function(cropped) {
     resolve(cropped);
     cropQueueIndex++;
     showCropItem();
@@ -1626,91 +1651,103 @@ function recropFromLb() {
   var isSeed = SEED_POSTS.some(function(p) { return p.id === postId; });
   var imgUrl = post.image;
 
-  function runCropUI(file, naturalW, naturalH) {
-    analyseScreenshot(file).then(function(item) {
-      item.skip = false; // always show handles
-      cropQueue = [item];
-      cropResolveQueue = [function(croppedFile) {
-        var reader = new FileReader();
-        reader.onload = function() {
-          var dataUrl = reader.result;
-          // 1. Update lightbox immediately
-          document.getElementById('lbImg').src = dataUrl;
-          // 2. Persist to lb_crops (survives lightbox close)
-          saveCrop(postId, dataUrl);
-          // 3. Update any visible grid cards
-          document.querySelectorAll('.card').forEach(function(card) {
-            if (card._postId === postId) {
-              var img = card.querySelector('img');
-              if (img) img.src = dataUrl;
-            }
-          });
-          // 4. Persist for local uploads
-          if (!isSeed) {
-            var uploads = getUploads();
-            var idx = uploads.findIndex(function(p) { return p.id === postId; });
-            if (idx >= 0) { uploads[idx].image = dataUrl; saveUploads(uploads); }
-          }
-          // 5. Push to GitHub in background
-          var token = getGhToken();
-          if (token) {
-            var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
-            var ghPath = 'images/' + postId + '.' + ext;
-            var b64 = dataUrl.split(',')[1];
-            fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-              headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-            }).then(function(r) { return r.json(); })
-              .then(function(meta) {
-                return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-                  method: 'PUT',
-                  headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
-                });
-              }).catch(function(e) { console.warn('recrop push failed', e); });
-          }
-          renderGrid();
-        };
-        reader.readAsDataURL(croppedFile);
-      }];
-      cropQueueIndex = 0;
-      showCropItem();
-    });
-  }
+  // Launch crop UI directly — pass the source URL, let cropImg load it natively
+  // No canvas pixel-reading needed until confirm time (avoids all CORS issues at open)
+  function runCropUI(srcUrl, w, h) {
+    // Build item manually — skip analyseScreenshot to avoid re-fetch
+    var item = { file: null, srcUrl: srcUrl, top: 0, bottom: h, w: w, h: h, skip: false };
 
-  // Use pre-fetched blob from openLb if available (no CORS issues)
-  function startCropFromBlob(blob) {
-    var blobUrl = URL.createObjectURL(blob);
-    var img = new Image();
-    img.onload = function() {
-      var w = img.naturalWidth, h = img.naturalHeight;
-      var canvas = document.createElement('canvas');
-      canvas.width = w; canvas.height = h;
-      canvas.getContext('2d').drawImage(img, 0, 0);
-      URL.revokeObjectURL(blobUrl);
-      canvas.toBlob(function(b) {
-        runCropUI(new File([b], postId + '.jpg', { type: 'image/jpeg' }), w, h);
-      }, 'image/jpeg', 0.95);
+    // Run auto-detection on a fresh image load for suggested bounds
+    var probe = new Image();
+    probe.onload = function() {
+      var pw = probe.naturalWidth, ph = probe.naturalHeight;
+      var scale = Math.min(1, 600/ph);
+      var sw = Math.round(pw*scale), sh = Math.round(ph*scale);
+      var pc = document.createElement('canvas');
+      pc.width = sw; pc.height = sh;
+      try {
+        pc.getContext('2d').drawImage(probe, 0, 0, sw, sh);
+        var bounds = detectCropBounds(pc.getContext('2d').getImageData(0,0,sw,sh), sw, sh);
+        item.top = Math.round(bounds.top / scale);
+        item.bottom = Math.round(bounds.bottom / scale);
+      } catch(e) { /* tainted — use full bounds */ }
+      showRecropModal(item, postId, isSeed, imgUrl);
     };
-    img.onerror = function() { URL.revokeObjectURL(blobUrl); tryFetchFallback(); };
-    img.src = blobUrl;
+    probe.onerror = function() { showRecropModal(item, postId, isSeed, imgUrl); };
+    probe.crossOrigin = 'anonymous';
+    probe.src = srcUrl + (srcUrl.startsWith('data:') ? '' : (srcUrl.includes('?') ? '&' : '?') + '_cb=' + Date.now());
   }
 
-  function tryFetchFallback() {
-    // Try fetching fresh — works for dataURLs and sometimes for GitHub raw
-    var src = getCrop(postId) || imgUrl;
-    fetch(src).then(function(r) {
-      if (!r.ok) throw new Error();
-      return r.blob();
-    }).then(startCropFromBlob).catch(function() {
-      alert('Could not load image for cropping. Try re-uploading this photo.');
-    });
-  }
-
+  // Use pre-fetched blob if available
   if (window._lbCurrentBlob && window._lbCurrentPostId === postId) {
-    startCropFromBlob(window._lbCurrentBlob);
+    var blobUrl = URL.createObjectURL(window._lbCurrentBlob);
+    var sizer = new Image();
+    sizer.onload = function() {
+      runCropUI(blobUrl, sizer.naturalWidth, sizer.naturalHeight);
+    };
+    sizer.src = blobUrl;
   } else {
-    tryFetchFallback();
+    var src = getCrop(postId) || imgUrl;
+    var sizer2 = new Image();
+    sizer2.onload = function() {
+      runCropUI(src, sizer2.naturalWidth, sizer2.naturalHeight);
+    };
+    sizer2.onerror = function() {
+      alert('Could not load image for cropping.');
+    };
+    sizer2.src = src;
   }
+}
+
+// Show the crop modal for a recrop operation (separate from upload crop flow)
+function showRecropModal(item, postId, isSeed, imgUrl) {
+  cropQueue = [item];
+  cropResolveQueue = [function(croppedFile) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      var dataUrl = reader.result;
+      // 1. Update lightbox immediately
+      if (currentId === postId) {
+        document.getElementById('lbImg').src = dataUrl;
+      }
+      // 2. Persist — this is the critical step
+      saveCrop(postId, dataUrl);
+      // 3. Update grid cards
+      document.querySelectorAll('.card').forEach(function(card) {
+        if (card._postId === postId) {
+          var cardImg = card.querySelector('img');
+          if (cardImg) cardImg.src = dataUrl;
+        }
+      });
+      // 4. Persist for local uploads
+      if (!isSeed) {
+        var uploads = getUploads();
+        var idx = uploads.findIndex(function(p) { return p.id === postId; });
+        if (idx >= 0) { uploads[idx].image = dataUrl; saveUploads(uploads); }
+      }
+      // 5. Push to GitHub in background
+      var token = getGhToken();
+      if (token) {
+        var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
+        var ghPath = 'images/' + postId + '.' + ext;
+        var b64 = dataUrl.split(',')[1];
+        fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+          headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+        }).then(function(r) { return r.json(); })
+          .then(function(meta) {
+            return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+              method: 'PUT',
+              headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
+            });
+          }).catch(function(e) { console.warn('recrop push failed', e); });
+      }
+      renderGrid();
+    };
+    reader.readAsDataURL(croppedFile);
+  }];
+  cropQueueIndex = 0;
+  showCropItem();
 }
 
 // ── RETAG ────────────────────────────────────────────────────
