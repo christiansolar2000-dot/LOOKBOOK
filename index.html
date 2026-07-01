@@ -1068,41 +1068,49 @@ function detectCropBounds(imageData, w, h) {
   }
 
   // ── TOP BOUND ────────────────────────────────────────────
+  // Tolerance scales with image height so small UI elements (avatars,
+  // buttons, icons) embedded in an otherwise-uniform header don't
+  // prematurely end the scan.
+  var topTolerance = Math.max(8, Math.floor(h * 0.05));
   var topBound = 0;
-  var bestTopRun = 0, currentRun = 0, runStart = 0;
+  var bestTopRun = 0, chromeRun = 0, nonChromeRun = 0, runStart = 0;
 
   for (var y = 0; y < Math.floor(h * 0.28); y++) {
     if (isChrome(y)) {
-      if (currentRun === 0) runStart = y;
-      currentRun++;
-      if (currentRun > bestTopRun) {
-        bestTopRun = currentRun;
+      if (chromeRun === 0) runStart = y;
+      chromeRun++;
+      nonChromeRun = 0;
+      if (chromeRun > bestTopRun) {
+        bestTopRun = chromeRun;
         topBound = y + 1;
       }
     } else {
-      // Allow up to 4 non-chrome rows inside a chrome band (noise / thin content lines)
-      if (currentRun > 6) break; // we've left a solid chrome zone
-      currentRun = 0;
+      nonChromeRun++;
+      if (nonChromeRun > topTolerance) break; // genuinely left the chrome zone
+      // else: tolerated blip — chromeRun is left intact so the run (and
+      // topBound) can keep extending once chrome resumes past this gap.
     }
   }
   topBound = Math.min(topBound, Math.floor(h * 0.24));
 
   // ── BOTTOM BOUND ─────────────────────────────────────────
   // Scan from bottom up. Search wider (up to 32%) to catch tall action bars.
+  var botTolerance = Math.max(8, Math.floor(h * 0.05));
   var bottomBound = h;
   var bestBotRun = 0;
-  currentRun = 0;
+  var botChromeRun = 0, botNonChromeRun = 0;
 
   for (var y2 = h - 1; y2 > Math.floor(h * 0.68); y2--) {
     if (isChrome(y2)) {
-      currentRun++;
-      if (currentRun > bestBotRun) {
-        bestBotRun = currentRun;
+      botChromeRun++;
+      botNonChromeRun = 0;
+      if (botChromeRun > bestBotRun) {
+        bestBotRun = botChromeRun;
         bottomBound = y2;
       }
     } else {
-      if (currentRun > 6) break;
-      currentRun = 0;
+      botNonChromeRun++;
+      if (botNonChromeRun > botTolerance) break;
     }
   }
   // Floor: never crop more than 28% from bottom
@@ -1114,16 +1122,16 @@ function detectCropBounds(imageData, w, h) {
   // scan for a band of low-variance rows in the bottom 20%.
   if (isLightUI && bottomBound > h * 0.88) {
     var footerStart = h;
-    currentRun = 0;
+    var footerRun = 0;
     for (var y3 = h - 1; y3 > Math.floor(h * 0.78); y3--) {
       var v3 = rowVariance(y3);
       var l3 = rowLuma(y3);
       if (v3 < 500 && l3 > 130) { // fairly uniform light row
-        currentRun++;
-        if (currentRun >= 4) { footerStart = y3; }
+        footerRun++;
+        if (footerRun >= 4) { footerStart = y3; }
       } else {
-        if (currentRun >= 4) break;
-        currentRun = 0;
+        if (footerRun >= 4) break;
+        footerRun = 0;
       }
     }
     if (footerStart < h * 0.92) {
