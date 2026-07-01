@@ -1696,12 +1696,13 @@ async function saveUpload() {
   // devices/sessions and silently collides with real existing IDs (this is
   // the confirmed root cause behind the 061-078 corruption).
   var localMax = SEED_POSTS.reduce(function(m, p) { return Math.max(m, parseInt(p.id, 10) || 0); }, 120);
-  var nextId = localMax + 1;
+  var idCursor = localMax + 1;
   if (token) {
     try {
       status.textContent = 'Checking existing IDs…';
       var listRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images', {
-        headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+        headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+        cache: 'no-store'
       });
       if (listRes.ok) {
         var files = await listRes.json();
@@ -1710,7 +1711,7 @@ async function saveUpload() {
           var m = f.name.match(/^(\d+)\.(jpg|jpeg|png)$/i);
           if (m) maxId = Math.max(maxId, parseInt(m[1], 10));
         });
-        if (maxId > 0) nextId = Math.max(nextId, maxId + 1);
+        if (maxId > 0) idCursor = Math.max(idCursor, maxId + 1);
       }
     } catch(e) {
       console.warn('Could not verify next ID against GitHub, falling back to local count', e);
@@ -1719,42 +1720,86 @@ async function saveUpload() {
   status.textContent = 'Saving…';
 
   var errors = 0;
+  var errorDetails = [];
   var newPosts = [];
   for (var i = 0; i < pendingFiles.length; i++) {
     var f = pendingFiles[i];
     var info = scrapedData[i] || {};
-    var id = String(nextId + i).padStart(3, '0');
     var ext = f.type === 'image/png' ? 'png' : 'jpg';
     var b64 = await fileToB64(f);
     var username = (info.username || manualUser || 'unknown').replace(/^@/, '');
-    var post = {
-      id: id, username: username,
-      caption: info.caption || '', hashtags: [],
-      post_date: info.date || '', post_key: username + '_' + id,
-      visual_tags: (info.visual_tags || []).concat(extraTags),
-      set_members: [], notes: '', fingerprint: b64.slice(0, 200),
-      image: 'https://raw.githubusercontent.com/' + GH_USER + '/' + GH_REPO + '/main/images/' + id + '.' + ext
-    };
-    if (token) {
+
+    if (!token) {
+      // No token — nothing to push, nothing to collide with, just assign locally.
+      var localId = String(idCursor++).padStart(3, '0');
+      newPosts.push({
+        id: localId, username: username, caption: info.caption || '', hashtags: [],
+        post_date: info.date || '', post_key: username + '_' + localId,
+        visual_tags: (info.visual_tags || []).concat(extraTags),
+        set_members: [], notes: '', fingerprint: b64.slice(0, 200),
+        image: 'https://raw.githubusercontent.com/' + GH_USER + '/' + GH_REPO + '/main/images/' + localId + '.' + ext
+      });
+      continue;
+    }
+
+    // Try the current cursor id; if it turns out to be taken (a genuine race
+    // with another device/session uploading concurrently), advance and retry
+    // with the next id — unlike recrop, an upload must NEVER silently
+    // overwrite existing content, so collisions here always mean "try a
+    // different id," never "retry the same write."
+    var pushed = false;
+    var attempts = 0;
+    var recordedError = false;
+    while (!pushed && attempts < 5) {
+      attempts++;
+      var id = String(idCursor).padStart(3, '0');
       try {
-        // Confirm this exact path is genuinely free before writing — belt
-        // and braces on top of the maxId check above (handles races with
-        // other devices uploading concurrently).
         var existsRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images/' + id + '.' + ext, {
-          headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+          headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+          cache: 'no-store'
         });
         if (existsRes.ok) {
-          throw new Error('ID ' + id + ' already exists on GitHub — refusing to overwrite');
+          idCursor++; // taken — try the next id
+          continue;
         }
         var ghRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images/' + id + '.' + ext, {
           method: 'PUT',
           headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: 'Add image ' + id, content: b64 })
         });
-        if (!ghRes.ok) { errors++; continue; }
-      } catch(e) { console.error('upload push failed for', id, e); errors++; continue; }
+        if (ghRes.ok) {
+          pushed = true;
+          idCursor++;
+        } else if (ghRes.status === 409) {
+          // Someone else grabbed this exact id in the moment between our
+          // check and our write — try the next one, don't overwrite.
+          idCursor++;
+        } else {
+          var errBody = await ghRes.json().catch(function(){ return {}; });
+          throw new Error('HTTP ' + ghRes.status + ': ' + (errBody.message || 'unknown error'));
+        }
+      } catch(e) {
+        console.error('upload push failed for id', id, e);
+        errors++;
+        errorDetails.push(id + ': ' + e.message);
+        recordedError = true;
+        break;
+      }
     }
-    newPosts.push(post);
+    if (!pushed) {
+      if (!recordedError) {
+        errors++;
+        errorDetails.push('Could not find a free ID after ' + attempts + ' attempts');
+      }
+      continue;
+    }
+    newPosts.push({
+      id: id, username: username, caption: info.caption || '', hashtags: [],
+      post_date: info.date || '', post_key: username + '_' + id,
+      visual_tags: (info.visual_tags || []).concat(extraTags),
+      set_members: [], notes: '', fingerprint: b64.slice(0, 200),
+      image: 'https://raw.githubusercontent.com/' + GH_USER + '/' + GH_REPO + '/main/images/' + id + '.' + ext
+    });
   }
 
   SEED_POSTS = SEED_POSTS.concat(newPosts);
@@ -1772,7 +1817,7 @@ async function saveUpload() {
       return;
     }
   }
-  status.textContent = errors ? (pendingFiles.length - errors) + ' saved, ' + errors + ' failed (see console) — not added to avoid corrupting existing posts.' : pendingFiles.length + ' saved and synced!';
+  status.textContent = errors ? (pendingFiles.length - errors) + ' saved, ' + errors + ' failed: ' + errorDetails.join('; ') : pendingFiles.length + ' saved and synced!';
   pendingFiles = []; scrapedData = [];
   setTimeout(closeUpload, 2200);
 }
@@ -2052,24 +2097,37 @@ function showRecropModal(item, postId, imgUrl) {
       var ghPath = 'images/' + postId + '.' + ext;
       var b64 = dataUrl.split(',')[1];
       setBtnStatus('Saving permanently…');
-      fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-        headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-      }).then(function(r) {
-        if (!r.ok) throw new Error('Could not read current file (HTTP ' + r.status + ')');
-        return r.json();
-      }).then(function(meta) {
-        if (!meta.sha) throw new Error('No sha returned for existing file');
+      // Retries once on a 409 (stale sha — something else wrote to this file,
+      // or landed a commit elsewhere in the repo, between our GET and PUT).
+      // Safe to retry here because recrop always intends to overwrite
+      // whatever is currently at this path, unlike a fresh upload.
+      function pushRecrop(isRetry) {
         return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-          method: 'PUT',
-          headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
-        });
-      }).then(function(putRes) {
-        if (!putRes.ok) {
-          return putRes.json().catch(function(){ return {}; }).then(function(errBody) {
-            throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
+          headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+          cache: 'no-store'
+        }).then(function(r) {
+          if (!r.ok) throw new Error('Could not read current file (HTTP ' + r.status + ')');
+          return r.json();
+        }).then(function(meta) {
+          if (!meta.sha) throw new Error('No sha returned for existing file');
+          return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+            method: 'PUT',
+            headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
           });
-        }
+        }).then(function(putRes) {
+          if (!putRes.ok) {
+            if (putRes.status === 409 && !isRetry) {
+              return pushRecrop(true);
+            }
+            return putRes.json().catch(function(){ return {}; }).then(function(errBody) {
+              throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
+            });
+          }
+          return putRes;
+        });
+      }
+      pushRecrop(false).then(function() {
         setBtnStatus('Saved permanently ✓', 2000);
       }).catch(function(e) {
         console.error('recrop push failed', e);
