@@ -195,6 +195,9 @@ nav {
 .drop-previews { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .drop-previews img { width: 56px; height: 68px; object-fit: cover; }
 .field { margin-bottom: 14px; }
+.field-status { font-size: 11px; color: var(--muted); margin-top: 4px; min-height: 14px; }
+.field-status .clear-link { color: var(--ink); text-decoration: underline; cursor: pointer; margin-left: 8px; }
+.field-status.is-saved { color: #2a7a2a; }
 .field label { display: block; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
 .field input {
   width: 100%; border: none; border-bottom: 1px solid var(--faint);
@@ -490,8 +493,16 @@ nav {
     <div class="modal-title">Settings</div>
     <button class="modal-close" onclick="document.getElementById('settingsModal').classList.remove('open')">×</button>
     <p class="setting-note">Enter your GitHub token to enable cross-device photo uploads. Optionally add a Gemini key for auto-tagging.</p>
-    <div class="field"><label>GitHub Token</label><input id="ghTokenInput" type="password" placeholder="ghp_…"></div>
-    <div class="field"><label>Gemini API Key (optional)</label><input id="geminiInput" type="password" placeholder="AIza…"></div>
+    <div class="field">
+      <label>GitHub Token</label>
+      <input id="ghTokenInput" type="password" placeholder="ghp_…">
+      <div class="field-status" id="ghTokenStatus"></div>
+    </div>
+    <div class="field">
+      <label>Gemini API Key (optional)</label>
+      <input id="geminiInput" type="password" placeholder="AIza…">
+      <div class="field-status" id="geminiStatus"></div>
+    </div>
     <button class="modal-save" onclick="saveSettings()">Save</button>
     <button class="modal-save" onclick="closeSettings(); bulkRetag();" style="margin-top:8px;background:transparent;color:var(--ink);border:1px solid var(--faint);">Re-tag unknown photos</button>
     <div class="modal-status" id="settingsStatus"></div>
@@ -1588,15 +1599,74 @@ document.getElementById('navLogo').addEventListener('click', function() {
   logoTapCount++;
   clearTimeout(logoTapTimer);
   logoTapTimer = setTimeout(function() { logoTapCount = 0; }, 400);
-  if (logoTapCount >= 2) { logoTapCount = 0; document.getElementById('settingsModal').classList.add('open'); }
+  if (logoTapCount >= 2) { logoTapCount = 0; openSettings(); }
 });
+function updateCredentialStatus() {
+  var ghToken = getGhToken();
+  var ghEl = document.getElementById('ghTokenStatus');
+  if (ghToken) {
+    var masked = ghToken.slice(0, 7) + '…' + ghToken.slice(-4);
+    ghEl.innerHTML = '';
+    ghEl.classList.add('is-saved');
+    ghEl.appendChild(document.createTextNode('✓ Saved (' + masked + ')'));
+    var clearBtn = document.createElement('span');
+    clearBtn.className = 'clear-link';
+    clearBtn.textContent = 'Clear';
+    clearBtn.onclick = function() {
+      if (confirm('Remove the saved GitHub token from this device? Uploads, crops, and edits will only save locally until you add it again.')) {
+        localStorage.removeItem('lb_gh_token');
+        updateCredentialStatus();
+      }
+    };
+    ghEl.appendChild(clearBtn);
+  } else {
+    ghEl.classList.remove('is-saved');
+    ghEl.textContent = 'Not saved on this device';
+  }
+
+  var geminiKey = getGeminiKey();
+  var gEl = document.getElementById('geminiStatus');
+  if (geminiKey) {
+    var maskedG = geminiKey.slice(0, 6) + '…' + geminiKey.slice(-4);
+    gEl.innerHTML = '';
+    gEl.classList.add('is-saved');
+    gEl.appendChild(document.createTextNode('✓ Saved (' + maskedG + ')'));
+    var clearBtnG = document.createElement('span');
+    clearBtnG.className = 'clear-link';
+    clearBtnG.textContent = 'Clear';
+    clearBtnG.onclick = function() {
+      if (confirm('Remove the saved Gemini key from this device? Auto-tagging will stop working until you add it again.')) {
+        localStorage.removeItem('lb_gemini_key');
+        updateCredentialStatus();
+      }
+    };
+    gEl.appendChild(clearBtnG);
+  } else {
+    gEl.classList.remove('is-saved');
+    gEl.textContent = 'Not saved on this device';
+  }
+}
+function openSettings() {
+  document.getElementById('ghTokenInput').value = '';
+  document.getElementById('geminiInput').value = '';
+  updateCredentialStatus();
+  document.getElementById('settingsModal').classList.add('open');
+}
 function saveSettings() {
   var t = document.getElementById('ghTokenInput').value.trim();
   var g = document.getElementById('geminiInput').value.trim();
   if (t) localStorage.setItem('lb_gh_token', t);
   if (g) localStorage.setItem('lb_gemini_key', g);
-  document.getElementById('settingsStatus').textContent = 'Saved.';
-  setTimeout(function() { document.getElementById('settingsModal').classList.remove('open'); document.getElementById('settingsStatus').textContent = ''; }, 1000);
+  document.getElementById('ghTokenInput').value = '';
+  document.getElementById('geminiInput').value = '';
+  updateCredentialStatus();
+  document.getElementById('settingsStatus').textContent = (t || g) ? 'Saved.' : '';
+  if (t || g) {
+    setTimeout(function() {
+      document.getElementById('settingsStatus').textContent = '';
+      document.getElementById('settingsModal').classList.remove('open');
+    }, 1200);
+  }
 }
 
 function isDuplicate(file) {
