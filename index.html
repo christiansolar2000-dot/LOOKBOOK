@@ -1,0 +1,2735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Lookbook</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #fff; --ink: #111; --muted: #999; --faint: #e8e8e8; --chip: #f2f2f2;
+  --f: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+html { scroll-behavior: smooth; }
+body { background: var(--bg); font-family: var(--f); color: var(--ink); min-height: 100vh; }
+
+nav {
+  position: sticky; top: 0; z-index: 300;
+  background: #fff; border-bottom: 1px solid var(--faint);
+  height: calc(56px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  display: flex; align-items: center; padding-left: 20px; padding-right: 20px; gap: 0;
+}
+.nav-logo {
+  font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink); font-weight: 500; margin-right: auto; cursor: pointer;
+  user-select: none;
+}
+.nav-tab {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); background: none; border: none; cursor: pointer;
+  padding: 0 16px; height: 48px; transition: color 0.15s; font-family: var(--f);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.nav-tab.active { color: var(--ink); border-bottom-color: var(--ink); }
+.nav-tab:hover { color: var(--ink); }
+.nav-add {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink); background: none; border: 1px solid var(--ink);
+  cursor: pointer; padding: 6px 14px; margin-left: 16px;
+  transition: all 0.15s; font-family: var(--f);
+}
+.nav-add:hover { background: var(--ink); color: #fff; }
+
+#explorePage { display: block; }
+#boardsPage { display: none; }
+
+.explore-header { padding: 20px 20px 0; display: flex; align-items: center; gap: 12px; }
+#searchInput {
+  flex: 1; min-width: 200px; max-width: 400px;
+  border: none; border-bottom: 1px solid var(--faint);
+  font-size: 13px; font-family: var(--f); color: var(--ink);
+  padding: 6px 0; outline: none; background: transparent; transition: border-color 0.2s;
+}
+#searchInput:focus { border-bottom-color: var(--ink); }
+#searchInput::placeholder { color: var(--muted); }
+
+.filter-pills { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px 20px 0; }
+.pill {
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 5px 12px; border: 1px solid var(--faint);
+  background: transparent; color: var(--muted); cursor: pointer;
+  transition: all 0.15s; font-family: var(--f); white-space: nowrap;
+}
+.pill:hover { border-color: var(--muted); color: var(--ink); }
+.pill.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+.grid { padding: 16px 20px; columns: 5 180px; column-gap: 8px; }
+.card {
+  break-inside: avoid; margin-bottom: 8px; cursor: pointer;
+  position: relative; overflow: hidden; background: var(--faint);
+}
+.card img { width: 100%; display: block; transition: opacity 0.2s; }
+.card:hover img { opacity: 0.88; }
+.card-label {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: rgba(255,255,255,0.94); padding: 9px 10px 8px;
+  opacity: 0; transition: opacity 0.2s;
+}
+.card-label-user {
+  font-size: 11px; font-weight: 700; color: #111; letter-spacing: 0.01em;
+  display: block; line-height: 1.2; margin-bottom: 1px;
+}
+.card-label-caption {
+  font-size: 10px; color: #555; font-style: italic;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block; line-height: 1.3;
+}
+.card:hover .card-label { opacity: 1; }
+.empty { display: none; text-align: center; padding: 100px 20px; color: var(--muted); font-size: 13px; }
+.empty.show { display: block; }
+
+/* LIGHTBOX */
+.lb { display: none; position: fixed; inset: 0; background: #fff; z-index: 500; overflow-y: auto; }
+.lb.open { display: block; }
+.lb-inner { max-width: 800px; margin: 0 auto; padding-bottom: 80px; }
+.lb-close {
+  position: fixed; top: 14px; right: 20px; font-size: 22px;
+  background: none; border: none; color: var(--muted); cursor: pointer; z-index: 10;
+}
+.lb-close:hover { color: var(--ink); }
+.lb-img-wrap { position: relative; }
+.lb-img { width: 100%; display: block; max-height: 52vh; object-fit: contain; background: #f2f2f2; }
+.lb-meta {
+  padding: 20px 24px 16px; border-bottom: 1px solid var(--faint);
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;
+}
+.lb-user {
+  font-size: 15px; font-weight: 700; color: var(--ink);
+  margin-bottom: 3px; cursor: pointer; display: inline-block; transition: color 0.15s; letter-spacing: 0.01em;
+}
+.lb-user:hover { opacity: 0.7; }
+.lb-caption { font-size: 15px; font-weight: 700; font-style: italic; color: var(--ink); line-height: 1.3; margin-bottom: 3px; }
+.lb-date { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+.lb-tags { display: flex; flex-wrap: wrap; gap: 4px; max-width: 220px; justify-content: flex-end; }
+.lb-tag {
+  font-size: 10px; padding: 3px 9px; background: var(--chip);
+  color: var(--muted); cursor: pointer; border: none; font-family: var(--f);
+  transition: all 0.15s;
+}
+.lb-tag:hover { background: var(--ink); color: #fff; }
+.lb-notes-wrap { padding: 12px 24px; border-bottom: 1px solid var(--faint); }
+.lb-notes {
+  width: 100%; border: none; border-bottom: 1px solid var(--faint);
+  font-size: 12px; font-family: var(--f); color: var(--muted);
+  padding: 4px 0; outline: none; background: transparent; font-style: italic;
+}
+.lb-notes:focus { color: var(--ink); border-bottom-color: var(--ink); }
+.lb-notes::placeholder { color: #ccc; }
+.lb-board-btn {
+  display: inline-block; margin: 12px 24px 0;
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: none; border: 1px solid var(--faint); color: var(--muted);
+  padding: 6px 14px; cursor: pointer; font-family: var(--f); transition: all 0.15s;
+}
+.lb-board-btn:hover { border-color: var(--ink); color: var(--ink); }
+.lb-section { padding: 16px 24px 0; border-top: 1px solid var(--faint); margin-top: 12px; }
+.section-label { font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+.thumb-row { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 16px; scrollbar-width: none; }
+.thumb-row::-webkit-scrollbar { display: none; }
+.thumb { flex-shrink: 0; width: 68px; height: 84px; object-fit: cover; cursor: pointer; opacity: 0.6; transition: opacity 0.15s; }
+.thumb:hover { opacity: 1; }
+.see-all {
+  display: block; margin-bottom: 16px; background: none; border: none;
+  color: var(--muted); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  cursor: pointer; font-family: var(--f); padding: 0; transition: color 0.15s;
+}
+.see-all:hover { color: var(--ink); }
+
+/* BOARDS */
+.boards-header { padding: 24px 20px 0; display: flex; align-items: center; justify-content: space-between; }
+.boards-title { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; }
+.new-board-btn {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: none; border: 1px solid var(--faint); color: var(--muted);
+  padding: 6px 14px; cursor: pointer; font-family: var(--f); transition: all 0.15s;
+}
+.new-board-btn:hover { border-color: var(--ink); color: var(--ink); }
+.boards-grid {
+  padding: 16px 20px;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px;
+}
+.board-card { cursor: pointer; border: 1px solid var(--faint); overflow: hidden; transition: border-color 0.15s; }
+.board-card:hover { border-color: var(--muted); }
+.board-cover { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; height: 160px; overflow: hidden; }
+.board-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.board-cover-empty { height: 160px; background: var(--chip); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); }
+.board-info { padding: 10px 12px; border-top: 1px solid var(--faint); }
+.board-name { font-size: 12px; color: var(--ink); margin-bottom: 2px; }
+.board-count { font-size: 10px; color: var(--muted); }
+#boardDetail { display: none; }
+.board-detail-header {
+  padding: 16px 20px; display: flex; align-items: center; gap: 16px;
+  border-bottom: 1px solid var(--faint);
+}
+.back-btn { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; background: none; border: none; color: var(--muted); cursor: pointer; font-family: var(--f); padding: 0; transition: color 0.15s; }
+.back-btn:hover { color: var(--ink); }
+.board-detail-name { font-size: 14px; }
+.board-delete-btn { margin-left: auto; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; background: none; border: none; color: var(--muted); cursor: pointer; font-family: var(--f); transition: color 0.15s; }
+.board-delete-btn:hover { color: #c00; }
+
+/* MODALS */
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 600; align-items: center; justify-content: center; }
+.modal-bg.open { display: flex; }
+.modal { background: #fff; padding: 28px; width: 92%; max-width: 460px; position: relative; max-height: 90vh; overflow-y: auto; }
+.modal-title { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); margin-bottom: 20px; }
+.modal-close { position: absolute; top: 14px; right: 18px; font-size: 20px; background: none; border: none; color: var(--muted); cursor: pointer; line-height: 1; }
+.modal-close:hover { color: var(--ink); }
+.drop-zone {
+  border: 1px dashed var(--faint); padding: 32px 16px; text-align: center;
+  cursor: pointer; margin-bottom: 16px; position: relative; transition: border-color 0.2s;
+}
+.drop-zone:hover, .drop-zone.over { border-color: var(--muted); }
+.drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.drop-hint { font-size: 11px; color: var(--muted); pointer-events: none; font-style: italic; }
+.drop-previews { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.drop-previews img { width: 56px; height: 68px; object-fit: cover; }
+.field { margin-bottom: 14px; }
+.field-status { font-size: 11px; color: var(--muted); margin-top: 4px; min-height: 14px; }
+.field-status .clear-link { color: var(--ink); text-decoration: underline; cursor: pointer; margin-left: 8px; }
+.field-status.is-saved { color: #2a7a2a; }
+.field label { display: block; font-size: 9px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+.field input {
+  width: 100%; border: none; border-bottom: 1px solid var(--faint);
+  font-size: 12px; font-family: var(--f); color: var(--ink);
+  padding: 5px 0; outline: none; background: transparent; transition: border-color 0.2s;
+}
+.field input:focus { border-bottom-color: var(--ink); }
+.field input::placeholder { color: #ccc; font-style: italic; }
+.modal-save {
+  width: 100%; background: var(--ink); color: #fff; border: none;
+  padding: 12px; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase;
+  font-family: var(--f); cursor: pointer; transition: opacity 0.15s; margin-top: 6px;
+}
+.modal-save:hover { opacity: 0.8; }
+.modal-save:disabled { opacity: 0.3; cursor: default; }
+.modal-status { font-size: 11px; color: var(--muted); text-align: center; margin-top: 10px; font-style: italic; min-height: 18px; }
+.board-pick-list { max-height: 240px; overflow-y: auto; margin-bottom: 14px; }
+.board-pick-item { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--faint); cursor: pointer; }
+.board-pick-name { font-size: 12px; color: var(--muted); transition: color 0.15s; flex: 1; }
+.board-pick-item:hover .board-pick-name { color: var(--ink); }
+.board-pick-count { font-size: 10px; color: #ccc; }
+.board-pick-check {
+  width: 16px; height: 16px; border: 1px solid #ddd; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: transparent; transition: all 0.15s;
+}
+.board-pick-item.checked .board-pick-check { background: var(--ink); border-color: var(--ink); color: #fff; }
+.board-pick-item.checked .board-pick-name { color: var(--ink); }
+
+/* SETTINGS */
+#settingsModal .modal { max-width: 380px; }
+.setting-note { font-size: 11px; color: var(--muted); font-style: italic; margin-bottom: 16px; line-height: 1.5; }
+
+.scraped-card {
+  border: 1px solid var(--faint); padding: 10px 12px; margin-bottom: 8px;
+  font-size: 11px; color: var(--muted);
+}
+.scraped-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.scraped-card-user { font-weight: 500; color: var(--ink); font-size: 11px; }
+.scraped-card-caption { color: var(--muted); font-size: 11px; line-height: 1.4; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scraped-card-meta { font-size: 10px; color: #bbb; }
+.scraped-card-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 6px; }
+.scraped-card-tag { font-size: 9px; padding: 2px 7px; background: var(--chip); color: var(--muted); }
+.scraped-card img { width: 48px; height: 56px; object-fit: cover; flex-shrink: 0; }
+
+@media (max-width: 600px) {
+  nav { padding: 0 12px; }
+  .explore-header { padding: 12px 12px 0; }
+  .filter-pills { padding: 10px 12px 0; }
+  .grid { padding: 10px 12px; columns: 2 140px; column-gap: 6px; }
+  .card { margin-bottom: 6px; }
+  .lb-meta { flex-direction: column; gap: 12px; }
+  .lb-tags { max-width: 100%; justify-content: flex-start; }
+  .boards-grid { grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
+}
+
+/* DELETE CONFIRM */
+.confirm-modal { position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:900;display:none;align-items:center;justify-content:center; }
+.confirm-modal.open { display:flex; }
+.confirm-box { background:#fff;padding:28px;max-width:320px;width:90%;text-align:center; }
+.confirm-box p { font-size:13px;color:#111;margin-bottom:6px;line-height:1.5; }
+.confirm-box .confirm-sub { font-size:11px;color:#999;font-style:italic;margin-bottom:20px; }
+.confirm-btns { display:flex;gap:10px;justify-content:center; }
+.confirm-btn { font-size:10px;letter-spacing:0.12em;text-transform:uppercase;padding:9px 20px;border:none;cursor:pointer;font-family:var(--f);transition:all 0.15s; }
+.confirm-btn-cancel { background:var(--chip);color:var(--muted); }
+.confirm-btn-cancel:hover { background:var(--faint); }
+.confirm-btn-delete { background:#c00;color:#fff; }
+.confirm-btn-delete:hover { background:#900; }
+
+/* SORT PAGE card drag */
+#sortCard { user-select:none; transition: transform 0.15s, opacity 0.15s; }
+#sortCard.dragging { transition: none; }
+
+
+/* CROP PREVIEW */
+.crop-modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:800; flex-direction:column; align-items:center; justify-content:center; }
+.crop-modal-bg.open { display:flex; }
+.crop-box { position:relative; background:#000; max-width:min(420px,92vw); touch-action:none; }
+.crop-box img { display:block; width:100%; max-height:65vh; object-fit:contain; user-select:none; pointer-events:none; }
+.crop-overlay-top { position:absolute; top:0; left:0; right:0; background:rgba(0,0,0,0.55); pointer-events:none; }
+.crop-overlay-bottom { position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.55); pointer-events:none; }
+.crop-handle {
+  position:absolute; left:0; right:0; height:4px;
+  background:#fff; cursor:ns-resize; touch-action:none; z-index:10;
+}
+.crop-handle::before {
+  content:''; position:absolute; left:0; right:0;
+  top:-20px; bottom:-20px; /* 40px tall touch target */
+}
+.crop-handle::after {
+  content:'⋯'; position:absolute; left:50%; top:50%;
+  transform:translate(-50%,-50%);
+  font-size:18px; color:#fff; letter-spacing:3px; pointer-events:none;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+.crop-handle-top { top:0; }
+.crop-handle-bottom { bottom:0; }
+.crop-actions { display:flex; gap:10px; margin-top:16px; }
+.crop-btn { font-size:10px; letter-spacing:0.12em; text-transform:uppercase; padding:10px 24px; border:none; cursor:pointer; font-family:var(--f); }
+.crop-btn-cancel { background:rgba(255,255,255,0.12); color:#fff; }
+.crop-btn-ok { background:#fff; color:#111; }
+.crop-counter { font-size:10px; color:rgba(255,255,255,0.5); margin-top:8px; letter-spacing:0.1em; }
+
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-logo" id="navLogo">Lookbook</span>
+  <button class="nav-tab active" id="tabExplore" onclick="showExplore()">Explore</button>
+  <button class="nav-tab" id="tabBoards" onclick="showBoards()">Boards</button>
+  <button class="nav-tab" id="tabSort" onclick="showSort()">Sort</button>
+  <button class="nav-add" onclick="openUpload()">+ Add</button>
+</nav>
+
+<div id="explorePage">
+  <div class="explore-header">
+    <input id="searchInput" type="search" placeholder="Search tags, users, vibes…" autocomplete="off">
+  </div>
+  <div id="filterPills" style="display:none"></div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty">No results</div>
+</div>
+
+<div id="boardsPage">
+  <div class="boards-header">
+    <span class="boards-title">Boards</span>
+    <button class="new-board-btn" onclick="createBoard()">+ New Board</button>
+  </div>
+  <div class="boards-grid" id="boardsGrid"></div>
+  <div id="boardDetail">
+    <div class="board-detail-header">
+      <button class="back-btn" onclick="closeBoard()">← Back</button>
+      <span class="board-detail-name" id="boardDetailName"></span>
+      <button class="board-delete-btn" onclick="deleteCurrentBoard()">Delete board</button>
+    </div>
+    <div class="grid" id="boardGrid"></div>
+  </div>
+</div>
+
+
+<div id="sortPage" style="display:none; position:fixed; inset:0; background:#fff; z-index:350; flex-direction:column; align-items:center; justify-content:center;">
+  <div id="sortCard" style="position:relative; width:min(380px,90vw); touch-action:none;">
+    <div id="sortImgWrap" style="position:relative; width:100%; border-radius:0; overflow:hidden; background:#f2f2f2;">
+      <img id="sortImg" src="" alt="" style="width:100%; display:block; max-height:60vh; object-fit:contain;">
+    </div>
+    <div id="sortMeta" style="padding:14px 0 6px;">
+      <div id="sortUser" style="font-size:13px; font-weight:700; color:#111; letter-spacing:0.02em;"></div>
+      <div id="sortCaption" style="font-size:12px; color:#555; margin-top:2px; font-style:italic; line-height:1.4;"></div>
+    </div>
+  </div>
+  <div style="display:flex; gap:32px; margin-top:18px; align-items:center;">
+    <button onclick="sortSkip()" style="width:56px;height:56px;border-radius:50%;border:1.5px solid #e8e8e8;background:#fff;font-size:22px;cursor:pointer;color:#999;display:flex;align-items:center;justify-content:center;" title="Skip">✕</button>
+    <button onclick="sortDelete()" style="width:44px;height:44px;border-radius:50%;border:1.5px solid #fdd;background:#fff;font-size:16px;cursor:pointer;color:#c00;display:flex;align-items:center;justify-content:center;" title="Delete">🗑</button>
+    <button onclick="sortSave()" style="width:56px;height:56px;border-radius:50%;border:1.5px solid #111;background:#111;font-size:22px;cursor:pointer;color:#fff;display:flex;align-items:center;justify-content:center;" title="Add to board">+</button>
+  </div>
+  <div style="margin-top:14px;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#bbb;">
+    <span id="sortProgress"></span>
+  </div>
+  <div id="sortDoneMsg" style="display:none;padding:60px 20px;text-align:center;color:#999;font-size:13px;">All caught up — nothing left to sort.</div>
+  <button onclick="showExplore()" style="position:absolute;top:14px;left:16px;background:none;border:none;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#999;cursor:pointer;font-family:var(--f);padding:4px 0;">← Back</button>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lb" id="lb">
+  <button class="lb-close" onclick="closeLb()">×</button>
+  <div class="lb-inner">
+    <div class="lb-img-wrap" id="lbImgWrap">
+      <img class="lb-img" id="lbImg" src="" alt="">
+    </div>
+    <div class="lb-meta">
+      <div>
+        <div class="lb-user" id="lbUser"></div>
+        <div class="lb-caption" id="lbCaption"></div>
+        <div class="lb-date" id="lbDate"></div>
+      </div>
+      <div class="lb-tags" id="lbTags"></div>
+    </div>
+    <div class="lb-notes-wrap">
+      <input class="lb-notes" id="lbNotes" placeholder="add a note…" type="text">
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;padding:0 24px;margin-top:12px;flex-wrap:wrap;">
+    <button class="lb-board-btn" onclick="openBoardPicker()" style="margin:0;">+ Add to board</button>
+    <button id="recropBtn" class="lb-board-btn" onclick="recropFromLb()" style="margin:0;">Recrop</button>
+    <button class="lb-board-btn" id="lbRetagBtn" onclick="retagFromLb()" style="margin:0;">Re-tag</button>
+    <button class="lb-board-btn" id="lbRemoveBoardBtn" onclick="removeFromBoardLb()" style="margin:0;display:none;">Remove from board</button>
+    <button class="lb-delete-btn" onclick="deleteFromLb()" style="margin-left:auto;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;background:none;border:1px solid #fdd;color:#c00;padding:6px 14px;cursor:pointer;font-family:var(--f);transition:all 0.15s;" onmouseover="this.style.background='#fdd'" onmouseout="this.style.background='none'">Delete photo</button>
+  </div>
+    <div class="lb-section" id="lbSetSection" style="display:none">
+      <div class="section-label">Series</div>
+      <div class="thumb-row" id="lbSetStrip"></div>
+    </div>
+    <div class="lb-section" id="lbUserSection" style="display:none">
+      <div class="section-label" id="lbUserLabel"></div>
+      <div class="thumb-row" id="lbUserStrip"></div>
+      <button class="see-all" id="lbSeeAll"></button>
+    </div>
+    <div class="lb-section" id="lbRelatedSection" style="display:none">
+      <div class="section-label">Related</div>
+      <div class="thumb-row" id="lbRelatedStrip"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM -->
+<div class="confirm-modal" id="confirmModal">
+  <div class="confirm-box">
+    <p id="confirmMsg">Delete this photo?</p>
+    <div class="confirm-sub" id="confirmSub"></div>
+    <div class="confirm-btns">
+      <button class="confirm-btn confirm-btn-cancel" onclick="closeConfirm()">Cancel</button>
+      <button class="confirm-btn confirm-btn-delete" id="confirmOkBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- CROP PREVIEW -->
+<div class="crop-modal-bg" id="cropModal">
+  <div class="crop-box" id="cropBox">
+    <img id="cropImg" src="" alt="">
+    <div class="crop-overlay-top" id="cropOverlayTop"></div>
+    <div class="crop-overlay-bottom" id="cropOverlayBottom"></div>
+    <div class="crop-handle crop-handle-top" id="cropHandleTop"></div>
+    <div class="crop-handle crop-handle-bottom" id="cropHandleBottom"></div>
+  </div>
+  <div class="crop-actions">
+    <button class="crop-btn crop-btn-cancel" onclick="cropCancel()">Skip crop</button>
+    <button class="crop-btn crop-btn-ok" id="cropConfirmBtn" onclick="cropConfirm()">Use this crop</button>
+  </div>
+  <div class="crop-counter" id="cropCounter"></div>
+</div>
+
+<!-- RETAG MODAL -->
+<div class="modal-bg" id="retagModal">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-title">Re-tag Photo</div>
+    <button class="modal-close" onclick="closeRetag()">×</button>
+    <div id="retagStatus" class="modal-status" style="text-align:left;margin-bottom:12px;min-height:18px;"></div>
+    <div id="retagPreview" style="display:flex;gap:12px;margin-bottom:16px;align-items:flex-start;">
+      <img id="retagThumb" src="" style="width:72px;height:88px;object-fit:cover;flex-shrink:0;background:#f2f2f2;">
+      <div style="flex:1;min-width:0;">
+        <div class="field" style="margin-bottom:8px;">
+          <label>@username</label>
+          <input id="retagUser" type="text" placeholder="detected username">
+        </div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>Caption</label>
+          <input id="retagCaption" type="text" placeholder="detected caption">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input id="retagDate" type="text" placeholder="detected date">
+        </div>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label>Visual Tags <span style="text-transform:none;letter-spacing:0;font-style:italic">(comma separated — edit freely)</span></label>
+      <input id="retagTags" type="text" placeholder="tags will appear here after analysis">
+    </div>
+    <button class="modal-save" id="retagSaveBtn" disabled onclick="saveRetag()">Save</button>
+    <div class="modal-status" id="retagSaveStatus"></div>
+  </div>
+</div>
+
+<!-- UPLOAD MODAL -->
+<div class="modal-bg" id="uploadModal">
+  <div class="modal">
+    <div class="modal-title">Add to Lookbook</div>
+    <button class="modal-close" onclick="closeUpload()">×</button>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="image/*" multiple>
+      <div class="drop-hint">Tap to choose photos · drag & drop</div>
+    </div>
+    <div class="drop-previews" id="dropPreviews"></div>
+    <div id="scrapedResults" style="display:none">
+      <div class="modal-status" id="scrapeStatus" style="text-align:left;margin-bottom:12px;"></div>
+      <div id="scrapedCards"></div>
+    </div>
+    <div id="manualFields">
+      <div class="field"><label>@username / source <span style="text-transform:none;letter-spacing:0;font-style:italic">(optional if screenshots)</span></label><input id="upUser" type="text" placeholder="e.g. kothoffline"></div>
+      <div class="field"><label>Extra tags <span style="text-transform:none;letter-spacing:0;font-style:italic">(comma separated)</span></label><input id="upTags" type="text" placeholder="outdoor, red, editorial"></div>
+    </div>
+    <button class="modal-save" id="saveBtn" disabled onclick="saveUpload()">Save</button>
+    <div class="modal-status" id="uploadStatus"></div>
+  </div>
+</div>
+
+<!-- BOARD PICKER -->
+<div class="modal-bg" id="boardPickerModal">
+  <div class="modal" style="max-width:320px">
+    <div class="modal-title">Boards</div>
+    <button class="modal-close" onclick="boardPickerCancel()">×</button>
+    <div class="board-pick-list" id="boardPickList"></div>
+    <button class="modal-save" onclick="boardPickerDone()">Done</button>
+    <button class="modal-save" onclick="createBoardFromPicker()" style="margin-top:8px;background:transparent;color:var(--ink);border:1px solid var(--faint);">+ Create new board</button>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="modal-bg" id="settingsModal">
+  <div class="modal" id="settingsModalInner">
+    <div class="modal-title">Settings</div>
+    <button class="modal-close" onclick="document.getElementById('settingsModal').classList.remove('open')">×</button>
+    <p class="setting-note">Enter your GitHub token to enable cross-device photo uploads. Optionally add a Gemini key for auto-tagging.</p>
+    <div class="field">
+      <label>GitHub Token</label>
+      <input id="ghTokenInput" type="password" placeholder="ghp_…">
+      <div class="field-status" id="ghTokenStatus"></div>
+    </div>
+    <div class="field">
+      <label>Gemini API Key (optional)</label>
+      <input id="geminiInput" type="password" placeholder="AIza…">
+      <div class="field-status" id="geminiStatus"></div>
+    </div>
+    <button class="modal-save" onclick="saveSettings()">Save</button>
+    <button class="modal-save" onclick="closeSettings(); bulkRetag();" style="margin-top:8px;background:transparent;color:var(--ink);border:1px solid var(--faint);">Re-tag unknown photos</button>
+    <div class="modal-status" id="settingsStatus"></div>
+  </div>
+</div>
+
+<script>
+const GH_USER = 'christiansolar2000-dot';
+const GH_REPO = 'lookbook';
+
+function getGhToken() { return localStorage.getItem('lb_gh_token') || ''; }
+
+// Reliably fetch an image as a data: URL with zero CORS/canvas-taint risk.
+// Strategy: if the URL is a GitHub raw URL and we have a token, pull the bytes
+// via the GitHub Contents API (returns base64 in JSON — no image request at all,
+// so no CORS involved whatsoever). Otherwise fall back to fetch()->blob->dataURL,
+// which is also taint-safe since blob/data URLs are always treated as same-origin
+// by <canvas>. This replaces the old approach of feeding cross-origin <img> src
+// directly into the crop UI, which is what caused the ~40% recrop failure rate.
+function fetchImageAsDataUrl(imgUrl) {
+  return new Promise(function(resolve, reject) {
+    var token = getGhToken();
+    var ghMatch = imgUrl && imgUrl.match(/raw\.githubusercontent\.com\/([^\/]+)\/([^\/]+)\/[^\/]+\/(.+)$/);
+    function viaFetchBlob() {
+      fetch(imgUrl, { cache: 'no-store' }).then(function(r) {
+        if (!r.ok) throw new Error('fetch failed: ' + r.status);
+        return r.blob();
+      }).then(function(blob) {
+        var reader = new FileReader();
+        reader.onload = function() { resolve(reader.result); };
+        reader.onerror = function() { reject(new Error('blob->dataURL failed')); };
+        reader.readAsDataURL(blob);
+      }).catch(reject);
+    }
+    if (ghMatch && token) {
+      var path = ghMatch[3];
+      fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + path, {
+        headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+        cache: 'no-store'
+      }).then(function(r) {
+        if (!r.ok) throw new Error('contents api failed: ' + r.status);
+        return r.json();
+      }).then(function(meta) {
+        if (!meta.content) throw new Error('no content in response');
+        var mime = /\.png$/i.test(path) ? 'image/png' : 'image/jpeg';
+        var b64 = meta.content.replace(/\n/g, '');
+        resolve('data:' + mime + ';base64,' + b64);
+      }).catch(function() {
+        // API path failed (rate limit, bad token, etc) — fall back to direct fetch
+        viaFetchBlob();
+      });
+    } else if (imgUrl && imgUrl.startsWith('data:')) {
+      resolve(imgUrl);
+    } else {
+      viaFetchBlob();
+    }
+  });
+}
+function getGeminiKey() { return localStorage.getItem('lb_gemini_key') || ''; }
+
+let SEED_POSTS = [];
+
+let activeUser = 'all', activeSearch = '', currentId = null, currentBoardId = null;
+let postsReady = false;
+
+// posts.json is now the single source of truth for ALL post metadata (1-478+),
+// replacing the old split where 1-120 lived hardcoded in this file and everything
+// else lived only in this device's localStorage (which meant it was invisible on
+// any other device, and silently lost if storage was ever cleared).
+async function loadAllPosts() {
+  // Instant paint from last-known-good local cache while the network fetch runs
+  try {
+    var cached = localStorage.getItem('lb_posts_cache');
+    if (cached) SEED_POSTS = JSON.parse(cached);
+  } catch(e) { /* ignore corrupt cache */ }
+
+  // Use the GitHub Contents API rather than raw.githubusercontent.com — the
+  // raw CDN has a real backend propagation delay for freshly-written files
+  // (confirmed: still stale 60+ seconds after a successful write in testing),
+  // which would make cross-device sync feel broken/unreliable. The Contents
+  // API is immediately consistent. Token is optional (60 req/hr unauthenticated
+  // is plenty for personal use) but used when available for a higher limit.
+  try {
+    var token = getGhToken();
+    var headers = { 'Accept': 'application/vnd.github.v3+json' };
+    if (token) headers['Authorization'] = 'token ' + token;
+    var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', { headers: headers, cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var meta = await res.json();
+    var jsonStr = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+    var data = JSON.parse(jsonStr);
+    if (Array.isArray(data) && data.length) {
+      SEED_POSTS = data;
+      localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS));
+    }
+  } catch(e) {
+    console.warn('Could not fetch posts.json from GitHub — using local cache (may be stale)', e);
+  }
+  postsReady = true;
+}
+
+function getAllPosts() {
+  return SEED_POSTS;
+}
+
+// Push the full current post list back to GitHub. This is what makes edits
+// (new uploads, re-tags, notes, deletes) permanent and synced across every
+// device — exactly the same guarantee posts 1-120 always had, now extended
+// to everything. Always verifies the write actually succeeded; never fails
+// silently.
+async function syncPostsToGitHub(_isRetry) {
+  localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS));
+  var token = getGhToken();
+  if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
+  try {
+    var getRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+      cache: 'no-store'
+    });
+    if (!getRes.ok) throw new Error('Could not read current posts.json (HTTP ' + getRes.status + ')');
+    var meta = await getRes.json();
+    var jsonStr = JSON.stringify(SEED_POSTS);
+    var b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+    var putRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Update posts.json', content: b64, sha: meta.sha })
+    });
+    if (!putRes.ok) {
+      // sha conflict (409) means someone else wrote in between our GET and
+      // PUT — safe to just retry once with a fresh sha, since our in-memory
+      // SEED_POSTS already has the intended change and re-fetching only
+      // updates the sha we're writing against, not the content.
+      if (putRes.status === 409 && !_isRetry) {
+        return syncPostsToGitHub(true);
+      }
+      var errBody = await putRes.json().catch(function(){ return {}; });
+      throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
+    }
+    return { ok: true };
+  } catch(e) {
+    console.error('posts.json sync failed', e);
+    return { ok: false, reason: e.message };
+  }
+}
+function getCrops() { try { return JSON.parse(localStorage.getItem('lb_crops') || '{}'); } catch(e) { return {}; } }
+function saveCrop(id, dataUrl) {
+  try {
+    var c = getCrops();
+    c[id] = dataUrl;
+    localStorage.setItem('lb_crops', JSON.stringify(c));
+  } catch(e) {
+    // localStorage full — try clearing old crops first
+    try {
+      var c2 = {}; c2[id] = dataUrl;
+      localStorage.setItem('lb_crops', JSON.stringify(c2));
+    } catch(e2) { console.warn('saveCrop: localStorage full', e2); }
+  }
+}
+function getCrop(id) { return getCrops()[id] || null; }
+
+var BOARDS = [];
+var boardsReady = false;
+
+// Boards were the last piece still using pure localStorage — this brings
+// them in line with posts.json's architecture. Because boards have been
+// diverging across devices for a while (real board data exists on more than
+// one device already), the very first sync needs a conscious choice rather
+// than silently picking a winner — see the confirm() below.
+async function loadAllBoards() {
+  try {
+    var cached = localStorage.getItem('lb_boards_cache') || localStorage.getItem('lb_boards');
+    if (cached) BOARDS = JSON.parse(cached);
+  } catch(e) { /* ignore corrupt cache */ }
+
+  var token = getGhToken();
+  var headers = { 'Accept': 'application/vnd.github.v3+json' };
+  if (token) headers['Authorization'] = 'token ' + token;
+  try {
+    var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/boards.json', { headers: headers, cache: 'no-store' });
+    var remoteData = null;
+    if (res.ok) {
+      var meta = await res.json();
+      var jsonStr = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+      remoteData = JSON.parse(jsonStr);
+    }
+    // Treat "doesn't exist" and "exists but empty" the same way for migration
+    // purposes — an empty remote is functionally un-synced from the user's
+    // point of view, and silently adopting it would wipe a device's real
+    // local boards without ever asking.
+    if (res.status === 404 || (Array.isArray(remoteData) && remoteData.length === 0)) {
+      var localBoards = [];
+      try { localBoards = JSON.parse(localStorage.getItem('lb_boards') || localStorage.getItem('lb_boards_cache') || '[]'); } catch(e) {}
+      if (localBoards.length && token) {
+        var msg = 'Boards have never been synced across devices before. This device has ' + localBoards.length + ' board(s) saved locally.\n\nMake these the permanent, cross-device version now?\n\nIf you have different or additional boards on another device, cancel and open this update there first instead — otherwise those boards will need to be recreated by hand.';
+        if (confirm(msg)) {
+          BOARDS = localBoards;
+          await syncBoardsToGitHub();
+        } else if (Array.isArray(remoteData)) {
+          BOARDS = remoteData;
+          localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
+        }
+      } else if (Array.isArray(remoteData)) {
+        BOARDS = remoteData;
+        localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
+      }
+    } else if (Array.isArray(remoteData)) {
+      BOARDS = remoteData;
+      localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
+    }
+  } catch(e) {
+    console.warn('Could not fetch boards.json from GitHub — using local cache (may be stale)', e);
+  }
+  boardsReady = true;
+}
+
+async function syncBoardsToGitHub(_isRetry) {
+  localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
+  var token = getGhToken();
+  if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
+  try {
+    var getRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/boards.json', {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+      cache: 'no-store'
+    });
+    var sha = null;
+    if (getRes.ok) {
+      var meta = await getRes.json();
+      sha = meta.sha;
+    } else if (getRes.status !== 404) {
+      throw new Error('Could not read current boards.json (HTTP ' + getRes.status + ')');
+    }
+    var jsonStr = JSON.stringify(BOARDS);
+    var b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+    var payload = { message: 'Update boards.json', content: b64 };
+    if (sha) payload.sha = sha;
+    var putRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/boards.json', {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!putRes.ok) {
+      if (putRes.status === 409 && !_isRetry) {
+        return syncBoardsToGitHub(true);
+      }
+      var errBody = await putRes.json().catch(function(){ return {}; });
+      throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
+    }
+    return { ok: true };
+  } catch(e) {
+    console.error('boards.json sync failed', e);
+    return { ok: false, reason: e.message };
+  }
+}
+
+function getBoards() { return BOARDS; }
+function saveBoards(b) {
+  BOARDS = b;
+  return syncBoardsToGitHub().then(function(r) {
+    if (!r.ok) console.warn('Board change not permanently synced:', r.reason);
+    return r;
+  });
+}
+
+// NAV
+function showExplore() {
+  document.getElementById('explorePage').style.display = '';
+  document.getElementById('boardsPage').style.display = 'none';
+  document.getElementById('sortPage').style.display = 'none';
+  document.getElementById('tabExplore').classList.add('active');
+  document.getElementById('tabBoards').classList.remove('active');
+  document.getElementById('tabSort').classList.remove('active');
+}
+function showBoards() {
+  document.getElementById('explorePage').style.display = 'none';
+  document.getElementById('boardsPage').style.display = 'block';
+  document.getElementById('sortPage').style.display = 'none';
+  document.getElementById('boardDetail').style.display = 'none';
+  document.getElementById('boardsGrid').style.display = '';
+  document.getElementById('tabExplore').classList.remove('active');
+  document.getElementById('tabBoards').classList.add('active');
+  document.getElementById('tabSort').classList.remove('active');
+  renderBoards();
+}
+function showSort() {
+  document.getElementById('explorePage').style.display = 'none';
+  document.getElementById('boardsPage').style.display = 'none';
+  document.getElementById('sortPage').style.display = 'flex';
+  document.getElementById('tabExplore').classList.remove('active');
+  document.getElementById('tabBoards').classList.remove('active');
+  document.getElementById('tabSort').classList.add('active');
+  initSort();
+}
+
+// PILLS
+function buildPills() {
+  const users = [...new Set(getAllPosts().map(function(p) { return p.username; }))].sort();
+  const el = document.getElementById('filterPills');
+  el.innerHTML = '<button class="pill active" data-user="all" onclick="setUser(\'all\')">All</button>';
+  users.forEach(function(u) {
+    const b = document.createElement('button');
+    b.className = 'pill';
+    b.dataset.user = u;
+    b.textContent = '@' + u;
+    b.onclick = function() { setUser(u); };
+    el.appendChild(b);
+  });
+}
+function setUser(u) {
+  activeUser = u;
+  document.querySelectorAll('.pill').forEach(function(p) {
+    p.classList.toggle('active', p.dataset.user === u);
+  });
+  renderGrid();
+}
+
+// SEARCH
+var searchTimer;
+document.getElementById('searchInput').addEventListener('input', function(e) {
+  clearTimeout(searchTimer);
+  activeSearch = e.target.value.toLowerCase().trim();
+  searchTimer = setTimeout(renderGrid, 120);
+});
+
+function match(p, term) {
+  var hay = [p.username, p.caption || ''].concat(p.hashtags || []).concat(p.visual_tags || []).join(' ').toLowerCase();
+  return term.split(/\s+/).every(function(t) { return hay.indexOf(t) >= 0; });
+}
+function getFiltered() {
+  return getAllPosts().filter(function(p) {
+    if (activeUser !== 'all' && p.username !== activeUser) return false;
+    return !activeSearch || match(p, activeSearch);
+  });
+}
+
+// INTERACTION LOG for randomized feed
+function getLog() { try { return JSON.parse(localStorage.getItem('lb_log') || '{}'); } catch(e) { return {}; } }
+function logInteraction(id, type) {
+  var log = getLog();
+  log[id] = log[id] || {};
+  log[id][type] = Date.now();
+  log[id].score = (log[id].score || 0) + (type === 'open' ? 1 : type === 'board' ? 3 : type === 'upload' ? 5 : 0);
+  localStorage.setItem('lb_log', JSON.stringify(log));
+}
+var _sessionOrder = null; // stable shuffle cache for this session
+function getWeightedShuffled(posts) {
+  // Build a stable id→rank map once per session so grid doesn't re-shuffle on search/filter
+  if (!_sessionOrder) {
+    var log = getLog();
+    var now = Date.now();
+    var ONE_WEEK = 7 * 24 * 3600 * 1000;
+    var scored = posts.map(function(p) {
+      var entry = log[p.id] || {};
+      var recency = entry.score ? Math.max(0, 1 - (now - Math.max(entry.open || 0, entry.board || 0)) / ONE_WEEK) : 0;
+      var base = (entry.score || 0) * 0.4 + recency * 0.6;
+      return { id: p.id, weight: base + Math.random() * 0.5 };
+    });
+    scored.sort(function(a, b) { return b.weight - a.weight; });
+    _sessionOrder = {};
+    scored.forEach(function(s, i) { _sessionOrder[s.id] = i; });
+  }
+  return posts.slice().sort(function(a, b) {
+    var ra = (_sessionOrder[a.id] !== undefined) ? _sessionOrder[a.id] : 9999;
+    var rb = (_sessionOrder[b.id] !== undefined) ? _sessionOrder[b.id] : 9999;
+    return ra - rb;
+  });
+}
+// Invalidate session order after uploads so new photos appear
+function resetSessionOrder() { _sessionOrder = null; }
+
+// GRID
+function renderGrid() {
+  // Explore grid
+  var grid = document.getElementById('grid');
+  var empty = document.getElementById('empty');
+  var filtered = getFiltered();
+  grid.innerHTML = '';
+  empty.classList.toggle('show', filtered.length === 0);
+  if (filtered.length === 0 && postsReady && SEED_POSTS.length === 0) {
+    empty.textContent = 'Could not load your photos. Check your connection, or add your GitHub token in Settings (double-tap the logo) and reload.';
+  } else if (filtered.length === 0) {
+    empty.textContent = 'No results';
+  }
+  var ordered = (activeUser === 'all' && !activeSearch) ? getWeightedShuffled(filtered) : filtered;
+  ordered.forEach(function(p) { grid.appendChild(makeCard(p, function() { openLb(p.id); })); });
+
+  // If a board is open, refresh it too so crops show there
+  if (currentBoardId && document.getElementById('boardDetail').style.display !== 'none') {
+    var board = getBoards().find(function(b) { return b.id === currentBoardId; });
+    if (board) {
+      var bGrid = document.getElementById('boardGrid');
+      bGrid.innerHTML = '';
+      getAllPosts().filter(function(p) { return (board.postIds || []).indexOf(p.id) >= 0; })
+        .forEach(function(p) { bGrid.appendChild(makeCard(p, function() { openLb(p.id); })); });
+    }
+  }
+
+  // Refresh board covers on the boards list page if visible
+  if (document.getElementById('boardsGrid').style.display !== 'none') {
+    renderBoards();
+  }
+}
+
+function makeCard(post, onClick) {
+  var card = document.createElement('div');
+  card.className = 'card';
+  var img = document.createElement('img');
+  img.src = getCrop(post.id) || post.image || '';
+  img.alt = '';
+  img.loading = 'lazy';
+  card.appendChild(img);
+  if (post.censor_boxes && post.censor_boxes.length) {
+    post.censor_boxes.forEach(function(box) {
+      var cb = document.createElement('div');
+      cb.style.cssText = 'position:absolute;left:' + box.x + '%;top:' + box.y + '%;width:' + box.w + '%;height:' + box.h + '%;background:#000;cursor:pointer;transition:opacity 0.2s;';
+      cb.addEventListener('click', function(e) { e.stopPropagation(); cb.style.opacity = cb.style.opacity === '0' ? '1' : '0'; });
+      card.appendChild(cb);
+    });
+  }
+  var label = document.createElement('div');
+  label.className = 'card-label';
+  var userSpan = document.createElement('span');
+  userSpan.className = 'card-label-user';
+  userSpan.textContent = '@' + post.username;
+  label.appendChild(userSpan);
+  if (post.caption) {
+    var capSpan = document.createElement('span');
+    capSpan.className = 'card-label-caption';
+    capSpan.textContent = post.caption;
+    label.appendChild(capSpan);
+  }
+  card.appendChild(label);
+  card.addEventListener('click', onClick);
+  card._postId = post.id;
+  return card;
+}
+
+// LIGHTBOX
+function openLb(id) {
+  var post = getAllPosts().find(function(p) { return p.id === id; });
+  if (!post) return;
+  currentId = id;
+  logInteraction(id, 'open');
+
+  var storedCrop = getCrop(id);
+  var imgSrc = storedCrop || post.image || '';
+  document.getElementById('lbImg').src = imgSrc;
+  document.querySelectorAll('.lb-censor').forEach(function(el) { el.remove(); });
+  if (post.censor_boxes) {
+    post.censor_boxes.forEach(function(box) {
+      var cb = document.createElement('div');
+      cb.className = 'lb-censor';
+      cb.style.cssText = 'position:absolute;left:' + box.x + '%;top:' + box.y + '%;width:' + box.w + '%;height:' + box.h + '%;background:#000;cursor:pointer;z-index:5;';
+      cb.addEventListener('click', function() { cb.style.opacity = cb.style.opacity === '0' ? '1' : '0'; });
+      document.getElementById('lbImgWrap').appendChild(cb);
+    });
+  }
+
+  var userEl = document.getElementById('lbUser');
+  userEl.textContent = '@' + post.username;
+  userEl.onclick = function() { closeLb(); setUser(post.username); };
+  document.getElementById('lbCaption').textContent = post.caption || '';
+  document.getElementById('lbDate').textContent = (post.post_date || '').toUpperCase();
+
+  var tagsEl = document.getElementById('lbTags');
+  tagsEl.innerHTML = '';
+  var allTags = (post.visual_tags || []).concat(post.hashtags || []).slice(0, 12);
+  allTags.forEach(function(tag) {
+    var b = document.createElement('button');
+    b.className = 'lb-tag';
+    b.textContent = tag;
+    b.onclick = function() {
+      closeLb();
+      document.getElementById('searchInput').value = tag;
+      activeSearch = tag.toLowerCase();
+      setUser('all');
+      renderGrid();
+    };
+    tagsEl.appendChild(b);
+  });
+
+  var notesEl = document.getElementById('lbNotes');
+  notesEl.value = post.notes || '';
+  notesEl.onchange = function() {
+    var p = SEED_POSTS.find(function(p) { return p.id === id; });
+    if (p) {
+      p.notes = notesEl.value;
+      syncPostsToGitHub().then(function(r) {
+        if (!r.ok) console.warn('Note not permanently saved:', r.reason);
+      });
+    }
+  };
+
+  var setSection = document.getElementById('lbSetSection');
+  var setStrip = document.getElementById('lbSetStrip');
+  setStrip.innerHTML = '';
+  var members = (post.set_members || []).filter(function(m) { return m !== id; });
+  if (members.length) {
+    setSection.style.display = '';
+    members.forEach(function(mid) {
+      var mp = getAllPosts().find(function(p) { return p.id === mid; });
+      if (mp) setStrip.appendChild(makeThumb(mp.image, function() { openLb(mid); }));
+    });
+  } else { setSection.style.display = 'none'; }
+
+  var userSection = document.getElementById('lbUserSection');
+  var userStrip = document.getElementById('lbUserStrip');
+  userStrip.innerHTML = '';
+  var byUser = getAllPosts().filter(function(p) { return p.username === post.username && p.id !== id; });
+  if (byUser.length) {
+    userSection.style.display = '';
+    document.getElementById('lbUserLabel').textContent = 'More from @' + post.username;
+    byUser.slice(0, 10).forEach(function(p) { userStrip.appendChild(makeThumb(p.image, function() { openLb(p.id); })); });
+    var sa = document.getElementById('lbSeeAll');
+    sa.textContent = 'View all ' + byUser.length + ' from @' + post.username + ' →';
+    sa.onclick = function() { closeLb(); setUser(post.username); };
+  } else { userSection.style.display = 'none'; }
+
+  // Related photos — posts sharing visual tags, always shown
+  var relatedSection = document.getElementById('lbRelatedSection');
+  var relatedStrip = document.getElementById('lbRelatedStrip');
+  relatedStrip.innerHTML = '';
+  var postTags = (post.visual_tags || []).map(function(t) { return t.toLowerCase(); });
+  var allOther = getAllPosts().filter(function(p) { return p.id !== id; });
+  var related = allOther.filter(function(p) {
+    var pTags = (p.visual_tags || []).map(function(t) { return t.toLowerCase(); });
+    return postTags.some(function(t) { return pTags.indexOf(t) >= 0; });
+  });
+  related.sort(function(a, b) {
+    var aTags = (a.visual_tags || []).map(function(t) { return t.toLowerCase(); });
+    var bTags = (b.visual_tags || []).map(function(t) { return t.toLowerCase(); });
+    var aMatch = postTags.filter(function(t) { return aTags.indexOf(t) >= 0; }).length;
+    var bMatch = postTags.filter(function(t) { return bTags.indexOf(t) >= 0; }).length;
+    return bMatch - aMatch;
+  });
+  // Fallback: if no tag matches at all, show other posts by same user or random selection
+  if (!related.length) {
+    related = allOther.filter(function(p) { return p.username === post.username; });
+    if (!related.length) related = allOther.slice(0, 12);
+  }
+  relatedSection.style.display = '';
+  related.slice(0, 12).forEach(function(p) { relatedStrip.appendChild(makeThumb(p.image, function() { openLb(p.id); })); });
+
+  // "Remove from board" only appears when this photo was opened while a board
+  // is genuinely on screen AND the photo is actually in that board. Checks all
+  // three because currentBoardId can linger after switching tabs.
+  var removeBtn = document.getElementById('lbRemoveBoardBtn');
+  var boardViewVisible = currentBoardId &&
+    document.getElementById('boardsPage').style.display !== 'none' &&
+    document.getElementById('boardDetail').style.display === 'block';
+  var ctxBoard = boardViewVisible ? getBoards().find(function(b) { return b.id === currentBoardId; }) : null;
+  removeBtn.style.display = (ctxBoard && (ctxBoard.postIds || []).indexOf(id) >= 0) ? '' : 'none';
+
+  document.getElementById('lb').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function makeThumb(src, onClick) {
+  var img = document.createElement('img');
+  img.className = 'thumb';
+  img.src = src || '';
+  img.alt = '';
+  img.addEventListener('click', onClick);
+  return img;
+}
+function closeLb() {
+  document.getElementById('lb').classList.remove('open');
+  document.body.style.overflow = '';
+  currentId = null;
+}
+document.getElementById('lb').addEventListener('click', function(e) { if (e.target.id === 'lb') closeLb(); });
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') { closeLb(); closeUpload(); boardPickerCancel(); document.getElementById('settingsModal').classList.remove('open'); } });
+
+// BOARDS
+function renderBoards() {
+  var boards = getBoards();
+  var grid = document.getElementById('boardsGrid');
+  grid.innerHTML = '';
+  if (!boards.length) {
+    grid.innerHTML = '<div style="padding:40px;color:#999;font-size:12px;letter-spacing:0.06em;grid-column:1/-1">No boards yet. Create one to start curating.</div>';
+    return;
+  }
+  boards.forEach(function(board) {
+    var card = document.createElement('div');
+    card.className = 'board-card';
+    card.onclick = function() { openBoard(board.id); };
+    var posts = getAllPosts().filter(function(p) { return (board.postIds || []).indexOf(p.id) >= 0; });
+    var imgs = posts.slice(0, 4).map(function(p) { return p.image; }).filter(Boolean);
+    if (imgs.length) {
+      var cover = document.createElement('div');
+      cover.className = 'board-cover';
+      imgs.forEach(function(src) {
+        var img = document.createElement('img');
+        img.src = src; img.alt = '';
+        cover.appendChild(img);
+      });
+      card.appendChild(cover);
+    } else {
+      var empty = document.createElement('div');
+      empty.className = 'board-cover-empty';
+      empty.textContent = 'empty';
+      card.appendChild(empty);
+    }
+    var info = document.createElement('div');
+    info.className = 'board-info';
+    info.innerHTML = '<div class="board-name">' + board.name + '</div><div class="board-count">' + posts.length + ' image' + (posts.length !== 1 ? 's' : '') + '</div>';
+    card.appendChild(info);
+    grid.appendChild(card);
+  });
+}
+function createBoard() {
+  var name = prompt('Board name:');
+  if (!name || !name.trim()) return;
+  var boards = getBoards();
+  boards.push({ id: Date.now().toString(), name: name.trim(), postIds: [] });
+  saveBoards(boards);
+  renderBoards();
+}
+function openBoard(id) {
+  currentBoardId = id;
+  var board = getBoards().find(function(b) { return b.id === id; });
+  if (!board) return;
+  document.getElementById('boardsGrid').style.display = 'none';
+  document.getElementById('boardDetail').style.display = 'block';
+  document.getElementById('boardDetailName').textContent = board.name;
+  var posts = getAllPosts().filter(function(p) { return (board.postIds || []).indexOf(p.id) >= 0; });
+  var grid = document.getElementById('boardGrid');
+  grid.innerHTML = '';
+  posts.forEach(function(p) { grid.appendChild(makeCard(p, function() { openLb(p.id); })); });
+}
+function closeBoard() {
+  currentBoardId = null;
+  document.getElementById('boardDetail').style.display = 'none';
+  document.getElementById('boardsGrid').style.display = '';
+  renderBoards();
+}
+function deleteCurrentBoard() {
+  if (!currentBoardId || !confirm('Delete this board?')) return;
+  saveBoards(getBoards().filter(function(b) { return b.id !== currentBoardId; })).then(function(r) {
+    if (!r.ok) alert('This board was removed here, but the deletion did not sync permanently:\n\n' + r.reason + '\n\nIt may still appear on other devices. Try again, or check your GitHub token in Settings.');
+  });
+  closeBoard();
+}
+
+// BOARD PICKER — multi-select checklist. Every row shows whether the photo is
+// already in that board (Items 6b/7); tapping toggles membership on/off, and
+// nothing is written until Done, which commits all adds AND removals in one
+// save/sync. Closing via × cancels with zero changes.
+var pickerCtx = null; // { postId, selected: {boardId:true}, onDone, onCancel }
+
+function openBoardPicker(opts) {
+  opts = opts || {};
+  var postId = opts.postId || currentId;
+  if (!postId) return;
+  var selected = {};
+  getBoards().forEach(function(b) { if ((b.postIds || []).indexOf(postId) >= 0) selected[b.id] = true; });
+  pickerCtx = { postId: postId, selected: selected, onDone: opts.onDone || null, onCancel: opts.onCancel || null };
+  renderBoardPickList();
+  document.getElementById('boardPickerModal').classList.add('open');
+}
+
+function renderBoardPickList() {
+  var list = document.getElementById('boardPickList');
+  var boards = getBoards();
+  list.innerHTML = '';
+  if (!boards.length) {
+    list.innerHTML = '<div style="padding:16px 0;color:#999;font-size:12px;">No boards yet.</div>';
+    return;
+  }
+  boards.forEach(function(board) {
+    var item = document.createElement('div');
+    item.className = 'board-pick-item' + (pickerCtx && pickerCtx.selected[board.id] ? ' checked' : '');
+    item.innerHTML = '<span class="board-pick-check">✓</span><span class="board-pick-name"></span><span class="board-pick-count">' + (board.postIds || []).length + '</span>';
+    item.querySelector('.board-pick-name').textContent = board.name;
+    item.onclick = function() {
+      if (!pickerCtx) return;
+      if (pickerCtx.selected[board.id]) delete pickerCtx.selected[board.id];
+      else pickerCtx.selected[board.id] = true;
+      item.classList.toggle('checked', !!pickerCtx.selected[board.id]);
+    };
+    list.appendChild(item);
+  });
+}
+
+function boardPickerDone() {
+  var ctx = pickerCtx;
+  pickerCtx = null;
+  document.getElementById('boardPickerModal').classList.remove('open');
+  if (!ctx) return;
+  var boards = getBoards();
+  var added = 0, removed = 0;
+  boards.forEach(function(b) {
+    var has = (b.postIds || []).indexOf(ctx.postId) >= 0;
+    var want = !!ctx.selected[b.id];
+    if (want && !has) { b.postIds = b.postIds || []; b.postIds.push(ctx.postId); added++; }
+    else if (!want && has) { b.postIds = b.postIds.filter(function(pid) { return pid !== ctx.postId; }); removed++; }
+  });
+  if (added || removed) {
+    saveBoards(boards).then(function(r) {
+      if (!r.ok) alert('Board changes were applied here, but did not sync permanently:\n\n' + r.reason + '\n\nThey may not appear on other devices. Try again, or check your GitHub token in Settings.');
+    });
+    if (added) logInteraction(ctx.postId, 'board');
+    renderGrid();
+  }
+  if (ctx.onDone) ctx.onDone(added, removed);
+}
+
+function boardPickerCancel() {
+  var ctx = pickerCtx;
+  pickerCtx = null;
+  document.getElementById('boardPickerModal').classList.remove('open');
+  if (ctx && ctx.onCancel) ctx.onCancel();
+}
+
+function createBoardFromPicker() {
+  var name = prompt('Board name:');
+  if (!name || !name.trim()) return;
+  var boards = getBoards();
+  var b = { id: Date.now().toString(), name: name.trim(), postIds: [] };
+  boards.push(b);
+  // The board itself is created (and synced) immediately so it survives even
+  // if the picker is cancelled — but the photo's membership in it still only
+  // commits on Done. It starts pre-checked.
+  saveBoards(boards);
+  if (pickerCtx) pickerCtx.selected[b.id] = true;
+  renderBoardPickList();
+}
+
+// UPLOAD
+var pendingFiles = [];
+function openUpload() { document.getElementById('uploadModal').classList.add('open'); }
+function closeUpload() {
+  document.getElementById('uploadModal').classList.remove('open');
+  pendingFiles = []; scrapedData = [];
+  document.getElementById('dropPreviews').innerHTML = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('upUser').value = '';
+  document.getElementById('upTags').value = '';
+  document.getElementById('saveBtn').disabled = true;
+  document.getElementById('uploadStatus').textContent = '';
+  document.getElementById('scrapedResults').style.display = 'none';
+  document.getElementById('scrapedCards').innerHTML = '';
+  document.getElementById('scrapeStatus').textContent = '';
+}
+
+var dropZone = document.getElementById('dropZone');
+var fileInput = document.getElementById('fileInput');
+dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('over'); });
+dropZone.addEventListener('drop', function(e) { e.preventDefault(); dropZone.classList.remove('over'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', function() { handleFiles(fileInput.files); });
+
+// ── SMART CROP ──────────────────────────────────────────────
+// Analyses pixel data to find where Instagram UI ends and content begins.
+// Strategy: scan rows for uniform-brightness bands (status bar, header, action strip)
+// then use variance to find the real content boundaries.
+function detectCropBounds(imageData, w, h) {
+  var d = imageData.data;
+
+  // Full-width luminance average for a row
+  function rowLuma(y) {
+    var sum = 0, count = 0;
+    for (var x = 0; x < w; x += 2) {
+      var i = (y * w + x) * 4;
+      sum += 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      count++;
+    }
+    return count ? sum / count : 128;
+  }
+
+  // Variance across the full row (low = uniform band)
+  function rowVariance(y) {
+    var vals = [], mean = 0;
+    for (var x = 0; x < w; x += 3) {
+      var i = (y * w + x) * 4;
+      var v = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+      vals.push(v); mean += v;
+    }
+    mean /= vals.length;
+    var vari = 0;
+    for (var j = 0; j < vals.length; j++) vari += (vals[j]-mean)*(vals[j]-mean);
+    return vari / vals.length;
+  }
+
+  // How "grey" a row is: R≈G≈B (UI icons are usually greyscale)
+  function rowGreyness(y) {
+    var diff = 0, count = 0;
+    for (var x = 0; x < w; x += 4) {
+      var i = (y * w + x) * 4;
+      var r = d[i], g = d[i+1], b = d[i+2];
+      var mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+      diff += (mx - mn); count++;
+    }
+    return count ? diff / count : 0; // low = greyscale/grey
+  }
+
+  // Detect app type from top rows
+  // Instagram feed: white top bar. Reels/Stories: near-black top bar.
+  var topZoneLuma = rowLuma(Math.floor(h * 0.03));
+  var isLightUI = topZoneLuma > 160;   // white/light chrome (feed, tagged posts)
+  var isDarkUI  = topZoneLuma < 50;    // black chrome (reels, stories, TikTok)
+
+  // Chrome row: uniform (low variance) AND matches expected UI brightness
+  // Also treat semi-uniform grey rows as chrome (action bars with icons)
+  function isChrome(y) {
+    var v = rowVariance(y);
+    var l = rowLuma(y);
+    var g = rowGreyness(y);
+    // Very uniform bright (white header/footer)
+    if (v < 200 && l > 175) return true;
+    // Very uniform dark (black bars, status bar, reels chrome)
+    if (v < 150 && l < 40) return true;
+    // Greyscale uniform row (like/comment icon rows — grey on white)
+    if (v < 300 && g < 18 && (l > 140 || l < 60)) return true;
+    return false;
+  }
+
+  // ── TOP BOUND ────────────────────────────────────────────
+  // Tolerance scales with image height so small UI elements (avatars,
+  // buttons, icons) embedded in an otherwise-uniform header don't
+  // prematurely end the scan.
+  var topTolerance = Math.max(8, Math.floor(h * 0.05));
+  var topBound = 0;
+  var bestTopRun = 0, chromeRun = 0, nonChromeRun = 0, runStart = 0;
+
+  for (var y = 0; y < Math.floor(h * 0.28); y++) {
+    if (isChrome(y)) {
+      if (chromeRun === 0) runStart = y;
+      chromeRun++;
+      nonChromeRun = 0;
+      if (chromeRun > bestTopRun) {
+        bestTopRun = chromeRun;
+        topBound = y + 1;
+      }
+    } else {
+      nonChromeRun++;
+      if (nonChromeRun > topTolerance) break; // genuinely left the chrome zone
+      // else: tolerated blip — chromeRun is left intact so the run (and
+      // topBound) can keep extending once chrome resumes past this gap.
+    }
+  }
+  topBound = Math.min(topBound, Math.floor(h * 0.24));
+
+  // ── BOTTOM BOUND ─────────────────────────────────────────
+  // Scan from bottom up. Search wider (up to 32%) to catch tall action bars.
+  var botTolerance = Math.max(8, Math.floor(h * 0.05));
+  var bottomBound = h;
+  var bestBotRun = 0;
+  var botChromeRun = 0, botNonChromeRun = 0;
+
+  for (var y2 = h - 1; y2 > Math.floor(h * 0.68); y2--) {
+    if (isChrome(y2)) {
+      botChromeRun++;
+      botNonChromeRun = 0;
+      if (botChromeRun > bestBotRun) {
+        bestBotRun = botChromeRun;
+        bottomBound = y2;
+      }
+    } else {
+      botNonChromeRun++;
+      if (botNonChromeRun > botTolerance) break;
+    }
+  }
+  // Floor: never crop more than 28% from bottom
+  bottomBound = Math.max(bottomBound, Math.floor(h * 0.72));
+
+  // ── INSTAGRAM FEED FOOTER HEURISTIC ──────────────────────
+  // Instagram action bar (likes/comments/share) is ~8-12% of height.
+  // If we haven't found a strong bottom crop and the image is light-UI,
+  // scan for a band of low-variance rows in the bottom 20%.
+  if (isLightUI && bottomBound > h * 0.88) {
+    var footerStart = h;
+    var footerRun = 0;
+    for (var y3 = h - 1; y3 > Math.floor(h * 0.78); y3--) {
+      var v3 = rowVariance(y3);
+      var l3 = rowLuma(y3);
+      if (v3 < 500 && l3 > 130) { // fairly uniform light row
+        footerRun++;
+        if (footerRun >= 4) { footerStart = y3; }
+      } else {
+        if (footerRun >= 4) break;
+        footerRun = 0;
+      }
+    }
+    if (footerStart < h * 0.92) {
+      bottomBound = Math.min(bottomBound, footerStart);
+    }
+  }
+
+  // ── INSTAGRAM CAPTION/META STRIP BELOW IMAGE ─────────────
+  // Some screenshots include the caption text below the image.
+  // Detect a sharp horizontal brightness transition (image→white caption area).
+  // Only if bottom is still near 100% — might be able to cut further.
+  if (bottomBound > h * 0.80) {
+    var prevLuma = rowLuma(Math.floor(h * 0.5));
+    for (var y4 = Math.floor(h * 0.60); y4 < Math.floor(h * 0.92); y4++) {
+      var curLuma = rowLuma(y4);
+      // Sharp jump to bright white = start of caption area
+      if (curLuma - prevLuma > 40 && curLuma > 200) {
+        bottomBound = Math.min(bottomBound, y4);
+        break;
+      }
+      prevLuma = curLuma * 0.7 + prevLuma * 0.3; // smoothed
+    }
+  }
+
+  bottomBound = Math.max(bottomBound, Math.floor(h * 0.72));
+
+  // Sanity: must keep at least 48% of image
+  if (bottomBound - topBound < h * 0.48) { topBound = 0; bottomBound = h; }
+
+  return { top: topBound, bottom: bottomBound };
+}
+
+// Analyse a file and return suggested crop bounds (pixel values, not %)
+function analyseScreenshot(file) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function() {
+      var w = img.naturalWidth, h = img.naturalHeight;
+      var isScreenshot = (h / w) > 1.4; // portrait-ish
+      if (!isScreenshot) { URL.revokeObjectURL(url); resolve({ file: file, top: 0, bottom: h, w: w, h: h, skip: true }); return; }
+      // Downscale for analysis only (speed)
+      var scale = Math.min(1, 600 / h);
+      var sw = Math.round(w * scale), sh = Math.round(h * scale);
+      var canvas = document.createElement('canvas');
+      canvas.width = sw; canvas.height = sh;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, sw, sh);
+      var bounds = detectCropBounds(ctx.getImageData(0, 0, sw, sh), sw, sh);
+      URL.revokeObjectURL(url);
+      resolve({
+        file: file,
+        top: Math.round(bounds.top / scale),
+        bottom: Math.round(bounds.bottom / scale),
+        w: w, h: h, skip: false
+      });
+    };
+    img.onerror = function() { URL.revokeObjectURL(url); resolve({ file: file, top: 0, bottom: 0, w: 0, h: 0, skip: true }); };
+    img.src = url;
+  });
+}
+
+// Apply a crop given pixel bounds and return a new File blob.
+// srcUrl (if provided) must be a blob: or data: URL — those never taint a
+// canvas, unlike cross-origin http(s) URLs, so it's always safe to redraw from.
+function applyCrop(file, top, bottom, w, h, srcUrl) {
+  return new Promise(function(resolve, reject) {
+    // Use the already-loaded cropImg if available (avoids re-fetch)
+    var cropImgEl = document.getElementById('cropImg');
+    if (cropImgEl && cropImgEl.complete && cropImgEl.naturalWidth > 0) {
+      var actualW = cropImgEl.naturalWidth;
+      var actualH = cropImgEl.naturalHeight;
+      var cropH = bottom - top;
+      var out = document.createElement('canvas');
+      out.width = actualW; out.height = cropH;
+      try {
+        out.getContext('2d').drawImage(cropImgEl, 0, top, actualW, cropH, 0, 0, actualW, cropH);
+        out.toBlob(function(blob) {
+          if (!blob) { fallback(); return; }
+          resolve(new File([blob], 'cropped.jpg', { type: 'image/jpeg' }));
+        }, 'image/jpeg', 0.93);
+        return;
+      } catch(e) { /* tainted — fall through to reload-based fallback */ }
+    }
+    fallback();
+
+    // Fallback: reload the image fresh from file or srcUrl (blob:/data: URLs
+    // are always canvas-safe) and draw from that instead of the DOM element.
+    function fallback() {
+      var url = file ? URL.createObjectURL(file) : (srcUrl || null);
+      if (!url) { reject(new Error('applyCrop: no file or srcUrl available')); return; }
+      var img = new Image();
+      img.onload = function() {
+        var cropH2 = bottom - top;
+        var out2 = document.createElement('canvas');
+        out2.width = img.naturalWidth || w; out2.height = cropH2;
+        try {
+          out2.getContext('2d').drawImage(img, 0, top, out2.width, cropH2, 0, 0, out2.width, cropH2);
+          if (file) URL.revokeObjectURL(url);
+          out2.toBlob(function(blob) {
+            if (!blob) { reject(new Error('applyCrop: toBlob returned null')); return; }
+            resolve(new File([blob], 'cropped.jpg', { type: 'image/jpeg' }));
+          }, 'image/jpeg', 0.93);
+        } catch(e2) {
+          if (file) URL.revokeObjectURL(url);
+          reject(e2);
+        }
+      };
+      img.onerror = function() { reject(new Error('applyCrop: image failed to load')); };
+      img.src = url;
+    }
+  });
+}
+
+// ── CROP PREVIEW UI ──────────────────────────────────────────
+var cropQueue = []; // [{file, top, bottom, w, h}, ...]
+var cropQueueIndex = 0;
+var cropResolveQueue = []; // resolve callbacks
+var cropCurrentBounds = { top: 0, bottom: 0, h: 0 }; // in display px
+
+function showCropModal(queue, resolves) {
+  cropQueue = queue;
+  cropResolveQueue = resolves;
+  cropQueueIndex = 0;
+  showCropItem();
+}
+
+function showCropItem() {
+  if (cropQueueIndex >= cropQueue.length) {
+    document.getElementById('cropModal').classList.remove('open');
+    return;
+  }
+  var item = cropQueue[cropQueueIndex];
+  var modal = document.getElementById('cropModal');
+  var box = document.getElementById('cropBox');
+  var cropImg = document.getElementById('cropImg');
+  document.getElementById('cropCounter').textContent =
+    (cropQueue.length > 1) ? (cropQueueIndex + 1) + ' of ' + cropQueue.length : '';
+
+  // Reset bounds for the new item so stale values from a previous item in
+  // the queue can never leak in, and disable confirm until real bounds are
+  // computed (belt-and-braces on top of the fallback guard in cropConfirm).
+  cropCurrentBounds = { top: 0, bottom: 0, h: 0 };
+  var confirmBtn = document.getElementById('cropConfirmBtn');
+  if (confirmBtn) confirmBtn.disabled = true;
+
+  // Support both file-based and srcUrl-based items
+  var objUrl = item.srcUrl || URL.createObjectURL(item.file);
+  var needsRevoke = !item.srcUrl;
+  cropImg.onload = function() {
+    // Must wait for render before reading offsetHeight — use rAF to be sure
+    requestAnimationFrame(function() {
+      // Use getBoundingClientRect for true rendered size after CSS constraints
+      var rect = cropImg.getBoundingClientRect();
+      var dispH = rect.height;
+      var dispW = rect.width;
+      // scaleY: how many display px per image px
+      var scaleY = dispH / item.h;
+      var topPx = Math.round(item.top * scaleY);
+      var botPx = Math.round(item.bottom * scaleY);
+      // Clamp to display bounds
+      topPx = Math.max(0, Math.min(topPx, dispH - 10));
+      botPx = Math.max(topPx + 10, Math.min(botPx, dispH));
+      cropCurrentBounds = { top: topPx, bottom: botPx, h: dispH, dispW: dispW, scaleY: scaleY, imgH: item.h };
+      updateCropOverlays();
+      initCropHandles(); // attach AFTER dimensions are known
+      if (confirmBtn) confirmBtn.disabled = false;
+    });
+    if (needsRevoke) URL.revokeObjectURL(objUrl);
+  };
+  cropImg.src = objUrl;
+  modal.classList.add('open');
+}
+
+function updateCropOverlays() {
+  var b = cropCurrentBounds;
+  document.getElementById('cropOverlayTop').style.height = b.top + 'px';
+  document.getElementById('cropOverlayBottom').style.height = (b.h - b.bottom) + 'px';
+  document.getElementById('cropHandleTop').style.top = b.top + 'px';
+  document.getElementById('cropHandleBottom').style.bottom = (b.h - b.bottom) + 'px';
+}
+
+function initCropHandles() {
+  var handleTop = document.getElementById('cropHandleTop');
+  var handleBot = document.getElementById('cropHandleBottom');
+  var box = document.getElementById('cropBox');
+
+  function makeDrag(handle, isTop) {
+    function onMove(e) {
+      e.preventDefault();
+      // Always re-read box rect live during drag
+      var boxRect = document.getElementById('cropImg').getBoundingClientRect();
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      var y = Math.round(clientY - boxRect.top);
+      var b = cropCurrentBounds;
+      // Update h in case it changed
+      b.h = boxRect.height;
+      if (isTop) {
+        b.top = Math.max(0, Math.min(y, b.bottom - 40));
+      } else {
+        b.bottom = Math.max(b.top + 40, Math.min(y, b.h));
+      }
+      updateCropOverlays();
+    }
+    function onEnd() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onEnd);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+    }
+    handle.addEventListener('mousedown', function(e) {
+      e.preventDefault();
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onEnd);
+    });
+    handle.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('touchend', onEnd);
+    }, { passive: false });
+  }
+  // Re-attach (clone to remove old listeners)
+  var newTop = handleTop.cloneNode(true); handleTop.parentNode.replaceChild(newTop, handleTop);
+  var newBot = handleBot.cloneNode(true); handleBot.parentNode.replaceChild(newBot, handleBot);
+  makeDrag(document.getElementById('cropHandleTop'), true);
+  makeDrag(document.getElementById('cropHandleBottom'), false);
+}
+
+function cropConfirm() {
+  var b = cropCurrentBounds;
+  var item = cropQueue[cropQueueIndex];
+  var cropImgEl = document.getElementById('cropImg');
+  var topImg, botImg;
+  var naturalH = cropImgEl.naturalHeight || item.h;
+  if (!b || !b.h) {
+    // cropCurrentBounds hasn't been initialized yet (the image-load + rAF
+    // handshake in showCropItem hasn't completed — e.g. confirm tapped
+    // immediately, or on a slow device). Falling back to the display-px
+    // math here would use stale {top:0,bottom:0,h:0} and silently crop the
+    // image down to a few px. Use the already-computed image-space bounds
+    // (auto-detected, or full frame) instead — always safe.
+    topImg = item.top;
+    botImg = item.bottom;
+  } else {
+    // Get true rendered dimensions right now
+    var rect = cropImgEl.getBoundingClientRect();
+    var renderedH = rect.height || b.h;
+    // Scale: display px → image px
+    var scaleY = renderedH > 0 ? (naturalH / renderedH) : 1;
+    // Convert handle positions (display px) to image px
+    topImg = Math.round(b.top * scaleY);
+    botImg = Math.round(b.bottom * scaleY);
+  }
+  topImg = Math.max(0, Math.min(topImg, naturalH - 10));
+  botImg = Math.max(topImg + 10, Math.min(botImg, naturalH));
+  var resolve = cropResolveQueue[cropQueueIndex];
+  applyCrop(item.file, topImg, botImg, cropImgEl.naturalWidth || item.w, naturalH, item.srcUrl).then(function(cropped) {
+    resolve(cropped);
+    cropQueueIndex++;
+    showCropItem();
+  }).catch(function(err) {
+    console.error('crop failed', err);
+    alert('Crop failed to save — please try again.');
+    cropQueueIndex++;
+    showCropItem();
+  });
+}
+
+function cropCancel() {
+  // Use auto-detected bounds without user confirmation
+  var item = cropQueue[cropQueueIndex];
+  var resolve = cropResolveQueue[cropQueueIndex];
+  if (item.file && (item.top === 0 && item.bottom === item.h || item.skip)) {
+    resolve(item.file);
+    cropQueueIndex++;
+    showCropItem();
+  } else {
+    applyCrop(item.file, item.top, item.bottom, item.w, item.h, item.srcUrl).then(function(cropped) {
+      resolve(cropped);
+      cropQueueIndex++;
+      showCropItem();
+    }).catch(function(err) {
+      console.error('crop failed', err);
+      alert('Crop failed to save — please try again.');
+      cropQueueIndex++;
+      showCropItem();
+    });
+  }
+}
+
+// Scrape post info from screenshot using Gemini 2.0 Flash
+var lastGeminiError = null;
+async function scrapePostInfo(file, b64) {
+  var geminiKey = getGeminiKey();
+  if (!geminiKey) return null;
+  lastGeminiError = null;
+  var prompt = `You are analysing an Instagram screenshot for a personal fashion and art inspiration archive.
+
+TASK: Extract structured metadata AND generate rich visual tags.
+
+INSTAGRAM UI LAYOUT (use this to locate data):
+- Username: appears near the top of the post, after a circular profile photo, usually in bold. May also appear in the caption as @mention.
+- Caption: the text block below the image/media. May be long — extract the full first sentence or up to ~120 chars. Strip trailing hashtags into the hashtags field.
+- Date: shown below the like count, e.g. "May 7" or "2 weeks ago" or "November 5, 2024". Convert relative dates to approximate if possible.
+- Hashtags: any #words in the caption or below it.
+
+VISUAL TAGS — generate 10-15 tags describing what you SEE in the IMAGE (not the UI). Focus on:
+- Clothing items (be specific: "white mesh top", "baggy cargo pants", "knee-high boots")
+- Hair colour/style ("platinum blonde", "waist-length dark hair", "buzz cut")
+- Colours dominant in the image ("red dominant", "monochrome", "warm golden tones")  
+- Setting/location ("rooftop NYC", "warehouse", "studio white background", "outdoor street")
+- Mood/aesthetic ("editorial", "candid", "grungy", "Y2K", "punk", "soft girl", "dark academia")
+- Body/pose ("overhead shot", "mirror selfie", "group of three", "lying down")
+- Props or notable objects ("cigarette", "American flag", "body paint", "dollar bills")
+- Photo style ("film grain", "double panel collage", "glitch art", "photo grid")
+
+Return ONLY a raw JSON object, no markdown, no explanation:
+{"username": "@handle or null", "caption": "caption text or null", "date": "date string or null", "hashtags": ["#tag1","#tag2"], "visual_tags": ["tag1","tag2",...], "is_social_screenshot": true}`;
+
+  // gemini-2.0-flash was fully retired by Google on 2026-06-01 — every call to
+  // it now 404s. gemini-2.5-flash is the current stable replacement.
+  try {
+    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [
+          { text: prompt },
+          { inline_data: { mime_type: file.type || 'image/jpeg', data: b64 } }
+        ]}],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 1024 }
+      })
+    });
+    var data = await res.json();
+    if (!res.ok) {
+      lastGeminiError = 'Gemini API error (HTTP ' + res.status + '): ' + (data.error && data.error.message ? data.error.message : 'unknown error');
+      console.error(lastGeminiError);
+      return null;
+    }
+    var txt = (data.candidates?.[0]?.content?.parts?.[0]?.text) || '';
+    // Strip markdown code fences if present
+    txt = txt.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/,'').trim();
+    var m = txt.match(/\{[\s\S]*\}/);
+    if (m) {
+      var parsed = JSON.parse(m[0]);
+      // Clean username
+      if (parsed.username) parsed.username = parsed.username.replace(/^@/, '');
+      return parsed;
+    }
+    lastGeminiError = 'Gemini returned no parseable JSON (response may have been blocked or empty)';
+  } catch(e) {
+    lastGeminiError = 'Gemini request failed: ' + e.message;
+    console.warn('Gemini scrape error', e);
+  }
+  return null;
+}
+
+var pendingFiles = [];
+var scrapedData = []; // per-file scraped info
+
+function fileToB64(file) {
+  return new Promise(function(res, rej) {
+    var r = new FileReader();
+    r.onload = function() { res(r.result.split(',')[1]); };
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+}
+
+// SETTINGS
+var logoTapCount = 0, logoTapTimer;
+document.getElementById('navLogo').addEventListener('click', function() {
+  logoTapCount++;
+  clearTimeout(logoTapTimer);
+  logoTapTimer = setTimeout(function() { logoTapCount = 0; }, 400);
+  if (logoTapCount >= 2) { logoTapCount = 0; openSettings(); }
+});
+function updateCredentialStatus() {
+  var ghToken = getGhToken();
+  var ghEl = document.getElementById('ghTokenStatus');
+  if (ghToken) {
+    var masked = ghToken.slice(0, 7) + '…' + ghToken.slice(-4);
+    ghEl.innerHTML = '';
+    ghEl.classList.add('is-saved');
+    ghEl.appendChild(document.createTextNode('✓ Saved (' + masked + ')'));
+    var clearBtn = document.createElement('span');
+    clearBtn.className = 'clear-link';
+    clearBtn.textContent = 'Clear';
+    clearBtn.onclick = function() {
+      if (confirm('Remove the saved GitHub token from this device? Uploads, crops, and edits will only save locally until you add it again.')) {
+        localStorage.removeItem('lb_gh_token');
+        updateCredentialStatus();
+      }
+    };
+    ghEl.appendChild(clearBtn);
+  } else {
+    ghEl.classList.remove('is-saved');
+    ghEl.textContent = 'Not saved on this device';
+  }
+
+  var geminiKey = getGeminiKey();
+  var gEl = document.getElementById('geminiStatus');
+  if (geminiKey) {
+    var maskedG = geminiKey.slice(0, 6) + '…' + geminiKey.slice(-4);
+    gEl.innerHTML = '';
+    gEl.classList.add('is-saved');
+    gEl.appendChild(document.createTextNode('✓ Saved (' + maskedG + ')'));
+    var clearBtnG = document.createElement('span');
+    clearBtnG.className = 'clear-link';
+    clearBtnG.textContent = 'Clear';
+    clearBtnG.onclick = function() {
+      if (confirm('Remove the saved Gemini key from this device? Auto-tagging will stop working until you add it again.')) {
+        localStorage.removeItem('lb_gemini_key');
+        updateCredentialStatus();
+      }
+    };
+    gEl.appendChild(clearBtnG);
+  } else {
+    gEl.classList.remove('is-saved');
+    gEl.textContent = 'Not saved on this device';
+  }
+}
+function openSettings() {
+  document.getElementById('ghTokenInput').value = '';
+  document.getElementById('geminiInput').value = '';
+  updateCredentialStatus();
+  document.getElementById('settingsModal').classList.add('open');
+}
+function saveSettings() {
+  var t = document.getElementById('ghTokenInput').value.trim();
+  var g = document.getElementById('geminiInput').value.trim();
+  if (t) localStorage.setItem('lb_gh_token', t);
+  if (g) localStorage.setItem('lb_gemini_key', g);
+  document.getElementById('ghTokenInput').value = '';
+  document.getElementById('geminiInput').value = '';
+  updateCredentialStatus();
+  document.getElementById('settingsStatus').textContent = (t || g) ? 'Saved.' : '';
+  if (t || g) {
+    setTimeout(function() {
+      document.getElementById('settingsStatus').textContent = '';
+      document.getElementById('settingsModal').classList.remove('open');
+    }, 1200);
+  }
+}
+
+function isDuplicate(file) {
+  return new Promise(function(resolve) {
+    var r = new FileReader();
+    r.onload = function() {
+      var fingerprint = r.result.slice(0, 200);
+      var existing = getAllPosts().map(function(p) { return p.fingerprint || ''; });
+      resolve(existing.indexOf(fingerprint) >= 0);
+    };
+    r.onerror = function() { resolve(false); };
+    r.readAsDataURL(file);
+  });
+}
+
+async function saveUpload() {
+  var status = document.getElementById('uploadStatus');
+  var token = getGhToken();
+  if (!pendingFiles.length) return;
+  status.textContent = 'Saving…';
+  document.getElementById('saveBtn').disabled = true;
+  var extraTags = (document.getElementById('upTags').value || '').split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+  var manualUser = (document.getElementById('upUser').value || '').trim().replace(/^@/, '');
+
+  // Determine the true next ID from the actual repo state and current posts
+  // list — never trust a purely local counter, since it's meaningless across
+  // devices/sessions and silently collides with real existing IDs (this is
+  // the confirmed root cause behind the 061-078 corruption).
+  var localMax = SEED_POSTS.reduce(function(m, p) { return Math.max(m, parseInt(p.id, 10) || 0); }, 120);
+  var idCursor = localMax + 1;
+  if (token) {
+    try {
+      status.textContent = 'Checking existing IDs…';
+      var listRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images', {
+        headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+        cache: 'no-store'
+      });
+      if (listRes.ok) {
+        var files = await listRes.json();
+        var maxId = 0;
+        files.forEach(function(f) {
+          var m = f.name.match(/^(\d+)\.(jpg|jpeg|png)$/i);
+          if (m) maxId = Math.max(maxId, parseInt(m[1], 10));
+        });
+        if (maxId > 0) idCursor = Math.max(idCursor, maxId + 1);
+      }
+    } catch(e) {
+      console.warn('Could not verify next ID against GitHub, falling back to local count', e);
+    }
+  }
+  status.textContent = 'Saving…';
+
+  var errors = 0;
+  var errorDetails = [];
+  var newPosts = [];
+  for (var i = 0; i < pendingFiles.length; i++) {
+    var f = pendingFiles[i];
+    var info = scrapedData[i] || {};
+    var ext = f.type === 'image/png' ? 'png' : 'jpg';
+    var b64 = await fileToB64(f);
+    var username = (info.username || manualUser || 'unknown').replace(/^@/, '');
+
+    if (!token) {
+      // No token — nothing to push, nothing to collide with, just assign locally.
+      var localId = String(idCursor++).padStart(3, '0');
+      newPosts.push({
+        id: localId, username: username, caption: info.caption || '', hashtags: [],
+        post_date: info.date || '', post_key: username + '_' + localId,
+        visual_tags: (info.visual_tags || []).concat(extraTags),
+        set_members: [], notes: '', fingerprint: b64.slice(0, 200),
+        image: 'https://raw.githubusercontent.com/' + GH_USER + '/' + GH_REPO + '/main/images/' + localId + '.' + ext
+      });
+      continue;
+    }
+
+    // Try the current cursor id; if it turns out to be taken (a genuine race
+    // with another device/session uploading concurrently), advance and retry
+    // with the next id — unlike recrop, an upload must NEVER silently
+    // overwrite existing content, so collisions here always mean "try a
+    // different id," never "retry the same write."
+    var pushed = false;
+    var attempts = 0;
+    var recordedError = false;
+    while (!pushed && attempts < 5) {
+      attempts++;
+      var id = String(idCursor).padStart(3, '0');
+      try {
+        var existsRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images/' + id + '.' + ext, {
+          headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+          cache: 'no-store'
+        });
+        if (existsRes.ok) {
+          idCursor++; // taken — try the next id
+          continue;
+        }
+        var ghRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images/' + id + '.' + ext, {
+          method: 'PUT',
+          headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'Add image ' + id, content: b64 })
+        });
+        if (ghRes.ok) {
+          pushed = true;
+          idCursor++;
+        } else if (ghRes.status === 409) {
+          // Someone else grabbed this exact id in the moment between our
+          // check and our write — try the next one, don't overwrite.
+          idCursor++;
+        } else {
+          var errBody = await ghRes.json().catch(function(){ return {}; });
+          throw new Error('HTTP ' + ghRes.status + ': ' + (errBody.message || 'unknown error'));
+        }
+      } catch(e) {
+        console.error('upload push failed for id', id, e);
+        errors++;
+        errorDetails.push(id + ': ' + e.message);
+        recordedError = true;
+        break;
+      }
+    }
+    if (!pushed) {
+      if (!recordedError) {
+        errors++;
+        errorDetails.push('Could not find a free ID after ' + attempts + ' attempts');
+      }
+      continue;
+    }
+    newPosts.push({
+      id: id, username: username, caption: info.caption || '', hashtags: [],
+      post_date: info.date || '', post_key: username + '_' + id,
+      visual_tags: (info.visual_tags || []).concat(extraTags),
+      set_members: [], notes: '', fingerprint: b64.slice(0, 200),
+      image: 'https://raw.githubusercontent.com/' + GH_USER + '/' + GH_REPO + '/main/images/' + id + '.' + ext
+    });
+  }
+
+  SEED_POSTS = SEED_POSTS.concat(newPosts);
+  resetSessionOrder();
+  buildPills(); renderGrid();
+
+  if (newPosts.length) {
+    status.textContent = 'Saving metadata permanently…';
+    var syncResult = await syncPostsToGitHub();
+    if (!syncResult.ok) {
+      status.textContent = (pendingFiles.length - errors) + ' saved, but metadata failed to sync permanently: ' + syncResult.reason;
+      alert('Photo(s) uploaded, but the captions/tags could not be saved permanently to GitHub:\n\n' + syncResult.reason + '\n\nThey are only stored on this device for now — try again, or check your GitHub token in Settings.');
+      setTimeout(closeUpload, 3200);
+      pendingFiles = []; scrapedData = [];
+      return;
+    }
+  }
+  status.textContent = errors ? (pendingFiles.length - errors) + ' saved, ' + errors + ' failed: ' + errorDetails.join('; ') : pendingFiles.length + ' saved and synced!';
+  pendingFiles = []; scrapedData = [];
+  setTimeout(closeUpload, 2200);
+}
+
+function handleFiles(files) {
+  var raw = Array.from(files).filter(function(f) { return f.type.indexOf('image/') === 0; });
+  scrapedData = [];
+  var prev = document.getElementById('dropPreviews');
+  prev.innerHTML = '';
+  document.getElementById('saveBtn').disabled = true;
+  document.getElementById('scrapedResults').style.display = 'none';
+  document.getElementById('scrapedCards').innerHTML = '';
+  document.getElementById('scrapeStatus').textContent = 'Checking for duplicates…';
+  document.getElementById('scrapedResults').style.display = '';
+
+  Promise.all(raw.map(isDuplicate)).then(function(dupeFlags) {
+    var skipped = dupeFlags.filter(Boolean).length;
+    pendingFiles = raw.filter(function(_, i) { return !dupeFlags[i]; });
+    if (!pendingFiles.length) {
+      document.getElementById('scrapeStatus').textContent = skipped + ' duplicate' + (skipped > 1 ? 's' : '') + ' skipped — nothing new to add.';
+      return;
+    }
+    if (skipped > 0) document.getElementById('scrapeStatus').textContent = skipped + ' duplicate' + (skipped > 1 ? 's' : '') + ' skipped.';
+    else document.getElementById('scrapeStatus').textContent = '';
+
+    pendingFiles.forEach(function(f) {
+      var img = document.createElement('img');
+      img.src = URL.createObjectURL(f);
+      prev.appendChild(img);
+    });
+    document.getElementById('saveBtn').disabled = false;
+
+    var geminiKey = getGeminiKey();
+
+    // Step 1: analyse all files for crop bounds (fast, no UI yet)
+    document.getElementById('scrapeStatus').textContent = (skipped ? skipped + ' dupes skipped · ' : '') + 'Analysing…';
+    Promise.all(pendingFiles.map(analyseScreenshot)).then(function(analyses) {
+      // Step 2: show crop preview UI for each screenshot in sequence
+      var origFiles = pendingFiles.slice(); // originals for scraping
+      // Reset crop queue for this batch
+      cropQueue = [];
+      cropResolveQueue = [];
+      cropQueueIndex = 0;
+      var cropPromises = analyses.map(function(item, i) {
+        return new Promise(function(res) {
+          if (item.skip || (item.top === 0 && item.bottom === item.h)) {
+            res(origFiles[i]); // no crop needed
+          } else {
+            cropQueue.push(item);
+            cropResolveQueue.push(res);
+          }
+        });
+      });
+      // Start showing crop modals (if any need review)
+      if (cropQueue.length) {
+        showCropItem();
+      }
+      return Promise.all(cropPromises).then(function(croppedFiles) {
+        // Update pendingFiles and previews with cropped versions
+        croppedFiles.forEach(function(cf, i) {
+          pendingFiles[i] = cf;
+          if (prev.children[i]) prev.children[i].src = URL.createObjectURL(cf);
+        });
+        // origB64s: use original (full screenshot) for scraping so Gemini sees the UI chrome
+        return Promise.all(origFiles.map(fileToB64));
+      });
+    }).then(function(b64s) {
+      if (!geminiKey) {
+        document.getElementById('scrapedResults').style.display = 'none';
+        return;
+      }
+      // Step 2: scrape sequentially with pacing — firing all requests at once
+      // risks the Gemini API's rate limit on anything but tiny batches, and
+      // errors were previously swallowed silently (every photo would just end
+      // up "unknown" with no explanation). Now sequential, paced, and any
+      // failure is visible in the status line.
+      document.getElementById('scrapedResults').style.display = '';
+      var scrapeErrors = 0;
+      var idx = 0;
+      function scrapeNext() {
+        if (idx >= pendingFiles.length) {
+          return Promise.resolve();
+        }
+        var i = idx++;
+        document.getElementById('scrapeStatus').textContent = 'Reading post info… (' + i + '/' + pendingFiles.length + (scrapeErrors ? ', ' + scrapeErrors + ' failed' : '') + ')';
+        return scrapePostInfo(pendingFiles[i], b64s[i]).then(function(info) {
+          if (!info) { scrapeErrors++; console.warn('Tagging failed for photo ' + i + ':', lastGeminiError); }
+          scrapedData[i] = info;
+          return new Promise(function(res) { setTimeout(res, 350); }); // pace calls
+        }).then(scrapeNext);
+      }
+      return scrapeNext().then(function() {
+        if (scrapeErrors) {
+          document.getElementById('scrapeStatus').textContent = scrapeErrors + ' of ' + pendingFiles.length + ' failed to auto-tag: ' + (lastGeminiError || 'unknown error') + ' — you can still edit fields manually below.';
+        }
+        return scrapedData.slice(0, pendingFiles.length);
+      });
+    }).then(function(infos) {
+      if (!infos) return;
+      if (!document.getElementById('scrapeStatus').textContent.includes('failed')) {
+        document.getElementById('scrapeStatus').textContent = pendingFiles.length + ' photo' + (pendingFiles.length > 1 ? 's' : '') + ' ready';
+      }
+      var cards = document.getElementById('scrapedCards');
+      cards.innerHTML = '';
+      pendingFiles.forEach(function(f, i) {
+        var info = scrapedData[i] || {};
+        var card = document.createElement('div');
+        card.className = 'scraped-card';
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
+        var thumb = document.createElement('img');
+        thumb.src = URL.createObjectURL(f);
+        row.appendChild(thumb);
+        var meta = document.createElement('div');
+        meta.style.cssText = 'flex:1;min-width:0;';
+        var uname = info.username ? '@' + info.username.replace(/^@/,'') : 'unknown';
+        var dateStr = info.date || '';
+        var hashStr = (info.hashtags || []).slice(0, 5).join(' ');
+        meta.innerHTML = '<div class="scraped-card-header"><span class="scraped-card-user">' + uname + '</span>' +
+          (dateStr ? '<span style="font-size:9px;color:#bbb;margin-left:8px;letter-spacing:0.08em;">' + dateStr + '</span>' : '') + '</div>' +
+          '<div class="scraped-card-caption">' + (info.caption || '') + '</div>' +
+          (hashStr ? '<div style="font-size:9px;color:#aaa;margin-top:3px;">' + hashStr + '</div>' : '');
+        if (info.visual_tags && info.visual_tags.length) {
+          var tagDiv = document.createElement('div');
+          tagDiv.className = 'scraped-card-tags';
+          info.visual_tags.forEach(function(t) {
+            var span = document.createElement('span');
+            span.className = 'scraped-card-tag';
+            span.textContent = t;
+            tagDiv.appendChild(span);
+          });
+          meta.appendChild(tagDiv);
+        }
+        row.appendChild(meta);
+        card.appendChild(row);
+        cards.appendChild(card);
+      });
+    });
+  });
+}
+
+
+// CONFIRM MODAL
+var confirmCallback = null;
+function openConfirm(msg, sub, cb) {
+  document.getElementById('confirmMsg').textContent = msg;
+  document.getElementById('confirmSub').textContent = sub || '';
+  confirmCallback = cb;
+  document.getElementById('confirmOkBtn').onclick = function() { closeConfirm(); if (confirmCallback) confirmCallback(); };
+  document.getElementById('confirmModal').classList.add('open');
+}
+function closeConfirm() { document.getElementById('confirmModal').classList.remove('open'); confirmCallback = null; }
+
+// REMOVE FROM BOARD (lightbox, board context only) — unlinks the photo from
+// the currently open board. Photo stays in the collection and all other boards.
+function removeFromBoardLb() {
+  if (!currentId || !currentBoardId) return;
+  var id = currentId;
+  var boardId = currentBoardId;
+  var board = getBoards().find(function(b) { return b.id === boardId; });
+  if (!board) return;
+  document.getElementById('confirmMsg').textContent = 'Remove from “' + board.name + '”?';
+  document.getElementById('confirmSub').textContent = 'The photo stays in your collection and in any other boards.';
+  document.getElementById('confirmOkBtn').textContent = 'Remove';
+  document.getElementById('confirmOkBtn').onclick = function() {
+    closeConfirm();
+    closeLb();
+    board.postIds = (board.postIds || []).filter(function(pid) { return pid !== id; });
+    saveBoards(getBoards()).then(function(r) {
+      if (!r.ok) alert('Removed from this board here, but the change did not sync permanently:\n\n' + r.reason + '\n\nIt may still appear in this board on other devices. Try again, or check your GitHub token in Settings.');
+    });
+    openBoard(boardId); // refresh the open board's grid
+  };
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+// Delete the actual hosted image file for a post from the repo, so deleting a
+// photo no longer leaves an orphaned file behind (the 553-vs-514 gap). Failure
+// here is non-fatal — an orphan file is invisible in the app and was the old
+// status quo anyway — so it's logged, never alerted. Retries once on 409.
+function deleteImageFileFromGitHub(post, _isRetry) {
+  var token = getGhToken();
+  if (!token || !post || !post.image) return Promise.resolve();
+  var m = post.image.match(/\/(images\/[^\/?#]+)/);
+  if (!m) return Promise.resolve();
+  var path = m[1];
+  return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + path, {
+    headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+    cache: 'no-store'
+  }).then(function(r) {
+    if (r.status === 404) return null; // already gone — nothing to do
+    if (!r.ok) throw new Error('read failed (HTTP ' + r.status + ')');
+    return r.json();
+  }).then(function(meta) {
+    if (!meta) return null;
+    return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + path, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Delete image for post ' + post.id, sha: meta.sha })
+    });
+  }).then(function(delRes) {
+    if (delRes && !delRes.ok) {
+      if (delRes.status === 409 && !_isRetry) return deleteImageFileFromGitHub(post, true);
+      throw new Error('delete failed (HTTP ' + delRes.status + ')');
+    }
+  }).catch(function(e) {
+    console.warn('Could not delete image file for post', post && post.id, e);
+  });
+}
+
+function deleteCrop(id) {
+  try {
+    var c = getCrops();
+    if (c[id] !== undefined) { delete c[id]; localStorage.setItem('lb_crops', JSON.stringify(c)); }
+  } catch(e) {}
+}
+
+// DELETE from lightbox (collection delete)
+function deleteFromLb() {
+  if (!currentId) return;
+  var id = currentId;
+  document.getElementById('confirmMsg').textContent = 'Delete this photo?';
+  document.getElementById('confirmSub').textContent = 'It will be removed from all boards and your collection, permanently, on every device. This cannot be undone.';
+  document.getElementById('confirmOkBtn').textContent = 'Delete';
+  document.getElementById('confirmOkBtn').onclick = function() {
+    closeConfirm();
+    closeLb();
+    var post = SEED_POSTS.find(function(p) { return p.id === id; });
+    SEED_POSTS = SEED_POSTS.filter(function(p) { return p.id !== id; });
+    var boards = getBoards();
+    boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== id; }); });
+    saveBoards(boards);
+    deleteCrop(id);
+    renderGrid();
+    deleteImageFileFromGitHub(post);
+    syncPostsToGitHub().then(function(r) {
+      if (!r.ok) alert('This photo was removed here, but the deletion did not sync permanently:\n\n' + r.reason + '\n\nIt may still appear on other devices. Try again, or check your GitHub token in Settings.');
+    });
+  };
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+// RECROP from lightbox
+function recropFromLb() {
+  if (!currentId) return;
+  var post = getAllPosts().find(function(p) { return p.id === currentId; });
+  if (!post) return;
+  var postId = currentId;
+  var imgUrl = post.image;
+  var src = getCrop(postId) || imgUrl;
+
+  if (!getGhToken()) {
+    if (!confirm('No GitHub token is set (Settings). Without it, this crop will only be saved on THIS device and will revert on other devices or if your cache is cleared — it will NOT permanently update the actual image file.\n\nContinue anyway?')) {
+      return;
+    }
+  }
+
+  // Launch crop UI directly — pass the source URL, let cropImg load it natively
+  function runCropUI(srcUrl, w, h) {
+    var item = { file: null, srcUrl: srcUrl, top: 0, bottom: h, w: w, h: h, skip: false };
+
+    // Run auto-detection for suggested bounds. srcUrl is always a data:/blob: URL
+    // at this point, so this never fails from CORS.
+    var probe = new Image();
+    probe.onload = function() {
+      var pw = probe.naturalWidth, ph = probe.naturalHeight;
+      var scale = Math.min(1, 600/ph);
+      var sw = Math.round(pw*scale), sh = Math.round(ph*scale);
+      var pc = document.createElement('canvas');
+      pc.width = sw; pc.height = sh;
+      try {
+        pc.getContext('2d').drawImage(probe, 0, 0, sw, sh);
+        var bounds = detectCropBounds(pc.getContext('2d').getImageData(0,0,sw,sh), sw, sh);
+        item.top = Math.round(bounds.top / scale);
+        item.bottom = Math.round(bounds.bottom / scale);
+      } catch(e) { /* use full bounds */ }
+      showRecropModal(item, postId, imgUrl);
+    };
+    probe.onerror = function() { showRecropModal(item, postId, imgUrl); };
+    probe.src = srcUrl;
+  }
+
+  // Reliably resolve the image to a data: URL first (GitHub Contents API when
+  // possible, otherwise fetch->blob->dataURL) — never feed a raw cross-origin
+  // URL straight into the crop <img>, which is what caused intermittent
+  // canvas-taint failures.
+  fetchImageAsDataUrl(src).then(function(dataUrl) {
+    var sizer = new Image();
+    sizer.onload = function() { resetRecropBtn(); runCropUI(dataUrl, sizer.naturalWidth, sizer.naturalHeight); };
+    sizer.onerror = function() { resetRecropBtn(); alert('Could not load image for cropping.'); };
+    sizer.src = dataUrl;
+  }).catch(function() {
+    resetRecropBtn();
+    alert('Could not load image for cropping. Check your connection or GitHub token in Settings.');
+  });
+  var recropBtn = document.getElementById('recropBtn');
+  if (recropBtn) { recropBtn.textContent = 'Loading…'; recropBtn.disabled = true; }
+  function resetRecropBtn() {
+    if (recropBtn) { recropBtn.textContent = 'Recrop'; recropBtn.disabled = false; }
+  }
+}
+
+// Show the crop modal for a recrop operation (separate from upload crop flow)
+function showRecropModal(item, postId, imgUrl) {
+  cropQueue = [item];
+  cropResolveQueue = [function(croppedFile) {
+    if (!croppedFile) {
+      alert('Crop failed to save — please try again.');
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function() {
+      var dataUrl = reader.result;
+      // 1. Update lightbox immediately
+      if (currentId === postId) {
+        document.getElementById('lbImg').src = dataUrl;
+      }
+      // 2. Persist locally (instant, always succeeds — this is the on-device cache)
+      saveCrop(postId, dataUrl);
+      // 3. Update grid cards
+      document.querySelectorAll('.card').forEach(function(card) {
+        if (card._postId === postId) {
+          var cardImg = card.querySelector('img');
+          if (cardImg) cardImg.src = dataUrl;
+        }
+      });
+      renderGrid();
+
+      // 4. Push to GitHub — this is what makes the crop PERMANENT (the actual
+      // hosted image file, not just this device's local cache). Every step is
+      // checked; failure is surfaced loudly instead of swallowed.
+      var token = getGhToken();
+      var recropBtn = document.getElementById('recropBtn');
+      function setBtnStatus(text, ms) {
+        if (!recropBtn) return;
+        recropBtn.textContent = text;
+        if (ms) setTimeout(function() { recropBtn.textContent = 'Recrop'; }, ms);
+      }
+      if (!token) {
+        setBtnStatus('Saved locally only ⚠️', 3500);
+        return;
+      }
+      var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
+      var ghPath = 'images/' + postId + '.' + ext;
+      var b64 = dataUrl.split(',')[1];
+      setBtnStatus('Saving permanently…');
+      // Retries once on a 409 (stale sha — something else wrote to this file,
+      // or landed a commit elsewhere in the repo, between our GET and PUT).
+      // Safe to retry here because recrop always intends to overwrite
+      // whatever is currently at this path, unlike a fresh upload.
+      function pushRecrop(isRetry) {
+        return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+          headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+          cache: 'no-store'
+        }).then(function(r) {
+          if (!r.ok) throw new Error('Could not read current file (HTTP ' + r.status + ')');
+          return r.json();
+        }).then(function(meta) {
+          if (!meta.sha) throw new Error('No sha returned for existing file');
+          return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+            method: 'PUT',
+            headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
+          });
+        }).then(function(putRes) {
+          if (!putRes.ok) {
+            if (putRes.status === 409 && !isRetry) {
+              return pushRecrop(true);
+            }
+            return putRes.json().catch(function(){ return {}; }).then(function(errBody) {
+              throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
+            });
+          }
+          return putRes;
+        });
+      }
+      pushRecrop(false).then(function() {
+        setBtnStatus('Saved permanently ✓', 2000);
+      }).catch(function(e) {
+        console.error('recrop push failed', e);
+        setBtnStatus('Recrop');
+        alert('This crop is only saved on this device — pushing it permanently to GitHub failed:\n\n' + e.message + '\n\nYour local view is updated, but other devices (and a cleared cache) will still show the old crop until this succeeds. Try again, or check your GitHub token in Settings.');
+      });
+    };
+    reader.readAsDataURL(croppedFile);
+  }];
+  cropQueueIndex = 0;
+  showCropItem();
+}
+
+// ── RETAG ────────────────────────────────────────────────────
+var retagPostId = null;
+
+function retagFromLb() {
+  if (!currentId) return;
+  retagPostId = currentId;
+  var post = getAllPosts().find(function(p) { return p.id === currentId; });
+  if (!post) return;
+
+  var modal = document.getElementById('retagModal');
+  var thumb = document.getElementById('retagThumb');
+  thumb.src = getCrop(post.id) || post.image || '';
+  document.getElementById('retagUser').value = post.username === 'unknown' ? '' : (post.username || '');
+  document.getElementById('retagCaption').value = post.caption || '';
+  document.getElementById('retagDate').value = post.post_date || '';
+  document.getElementById('retagTags').value = (post.visual_tags || []).join(', ');
+  document.getElementById('retagStatus').textContent = '';
+  document.getElementById('retagSaveBtn').disabled = false;
+  document.getElementById('retagSaveStatus').textContent = '';
+  modal.classList.add('open');
+
+  // Auto-run Gemini if key is set
+  var geminiKey = getGeminiKey();
+  if (geminiKey) {
+    document.getElementById('retagStatus').textContent = 'Analysing with Gemini…';
+    document.getElementById('retagSaveBtn').disabled = true;
+    var srcForAnalysis = getCrop(post.id) || post.image || '';
+    fetchImageAsDataUrl(srcForAnalysis).then(function(dataUrl) {
+      var b64 = dataUrl.split(',')[1];
+      var mime = dataUrl.match(/^data:([^;]+);/);
+      return scrapePostInfo({ type: mime ? mime[1] : 'image/jpeg' }, b64);
+    }).then(function(info) {
+      if (info) {
+        if (info.username && info.username !== 'unknown' && info.username !== 'null') {
+          document.getElementById('retagUser').value = info.username.replace(/^@/,'');
+        }
+        if (info.caption && info.caption !== 'null') {
+          document.getElementById('retagCaption').value = info.caption;
+        }
+        if (info.date && info.date !== 'null') {
+          document.getElementById('retagDate').value = info.date;
+        }
+        if (info.visual_tags && info.visual_tags.length) {
+          document.getElementById('retagTags').value = info.visual_tags.join(', ');
+        }
+        document.getElementById('retagStatus').textContent = 'Analysis complete — edit and save.';
+      } else {
+        document.getElementById('retagStatus').textContent = (lastGeminiError || 'Could not read info') + ' — fill in manually.';
+      }
+      document.getElementById('retagSaveBtn').disabled = false;
+    }).catch(function(e) {
+      document.getElementById('retagStatus').textContent = 'Could not load image (' + e.message + ') — fill in manually.';
+      document.getElementById('retagSaveBtn').disabled = false;
+    });
+  }
+}
+
+function closeRetag() {
+  document.getElementById('retagModal').classList.remove('open');
+  retagPostId = null;
+}
+
+function saveRetag() {
+  if (!retagPostId) return;
+  var newUser = document.getElementById('retagUser').value.trim().replace(/^@/,'') || 'unknown';
+  var newCaption = document.getElementById('retagCaption').value.trim();
+  var newDate = document.getElementById('retagDate').value.trim();
+  var newTags = document.getElementById('retagTags').value.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+  var id = retagPostId;
+
+  var p = SEED_POSTS.find(function(p) { return p.id === id; });
+  if (p) {
+    p.username = newUser;
+    p.caption = newCaption;
+    p.post_date = newDate;
+    p.visual_tags = newTags;
+  }
+
+  // Update open lightbox display
+  if (document.getElementById('lb').classList.contains('open') && currentId === id) {
+    document.getElementById('lbUser').textContent = '@' + newUser;
+    document.getElementById('lbCaption').textContent = newCaption;
+    document.getElementById('lbDate').textContent = newDate.toUpperCase();
+    var tagsEl = document.getElementById('lbTags');
+    tagsEl.innerHTML = '';
+    newTags.forEach(function(tag) {
+      var b = document.createElement('button');
+      b.className = 'lb-tag'; b.textContent = tag;
+      b.onclick = function() { closeLb(); document.getElementById('searchInput').value = tag; activeSearch = tag.toLowerCase(); setUser('all'); renderGrid(); };
+      tagsEl.appendChild(b);
+    });
+  }
+
+  buildPills();
+  renderGrid();
+  document.getElementById('retagSaveStatus').textContent = 'Saving permanently…';
+  syncPostsToGitHub().then(function(r) {
+    if (r.ok) {
+      document.getElementById('retagSaveStatus').textContent = 'Saved!';
+      setTimeout(closeRetag, 900);
+    } else {
+      document.getElementById('retagSaveStatus').textContent = 'Saved locally only — sync failed';
+      alert('This change is only saved on this device — it did not sync permanently:\n\n' + r.reason + '\n\nTry again, or check your GitHub token in Settings.');
+    }
+  });
+}
+
+// ── BULK RETAG: find all unknown/untagged posts and retag them ──
+function bulkRetag() {
+  var geminiKey = getGeminiKey();
+  if (!geminiKey) { alert('Add a Gemini API key in Settings first.'); return; }
+  var posts = getAllPosts().filter(function(p) {
+    return p.username === 'unknown' || !p.username || (p.visual_tags || []).length === 0;
+  });
+  if (!posts.length) { alert('No untagged photos found.'); return; }
+  if (!confirm('Re-tag ' + posts.length + ' untagged photo(s) using Gemini? This may take a while — you can leave this tab open in the background.')) return;
+
+  var i = 0;
+  var done = 0, failed = 0;
+  var SYNC_EVERY = 10; // periodic checkpoint so long runs don't lose progress if interrupted
+  var statusEl = document.getElementById('settingsStatus');
+
+  function updateStatus() {
+    if (statusEl) statusEl.textContent = 'Re-tagging ' + (i) + '/' + posts.length + ' (' + done + ' updated, ' + failed + ' failed)…';
+  }
+
+  function processNext() {
+    if (i >= posts.length) {
+      buildPills(); renderGrid();
+      syncPostsToGitHub().then(function(r) {
+        var msg = 'Done! ' + done + ' updated' + (failed ? ', ' + failed + ' failed.' : '.');
+        if (!r.ok) msg += '\n\nFinal save did not sync permanently: ' + r.reason;
+        alert(msg);
+        if (statusEl) statusEl.textContent = '';
+      });
+      return;
+    }
+    var post = posts[i++];
+    updateStatus();
+    // Use the same CORS-safe path as recrop: fetch via GitHub Contents API (or
+    // fetch->blob as fallback) instead of loading a cross-origin <img> directly,
+    // which taints the canvas and silently breaks this exact feature.
+    var src = getCrop(post.id) || post.image || '';
+    fetchImageAsDataUrl(src).then(function(dataUrl) {
+      var b64 = dataUrl.split(',')[1];
+      var mime = dataUrl.match(/^data:([^;]+);/);
+      return scrapePostInfo({ type: mime ? mime[1] : 'image/jpeg' }, b64);
+    }).then(function(info) {
+      if (info) {
+        var p = SEED_POSTS.find(function(p) { return p.id === post.id; });
+        if (p) {
+          if (info.username && info.username !== 'null') p.username = info.username.replace(/^@/,'');
+          if (info.caption && info.caption !== 'null') p.caption = info.caption;
+          if (info.date && info.date !== 'null') p.post_date = info.date;
+          if (info.visual_tags && info.visual_tags.length) p.visual_tags = info.visual_tags;
+        }
+        done++;
+      } else { failed++; }
+    }).catch(function(e) {
+      console.warn('bulkRetag failed for', post.id, e);
+      failed++;
+    }).then(function() {
+      if (done > 0 && done % SYNC_EVERY === 0) {
+        renderGrid();
+        syncPostsToGitHub().then(function(r) {
+          if (!r.ok) console.warn('Checkpoint sync failed:', r.reason);
+          setTimeout(processNext, 800); // pace API calls
+        });
+      } else {
+        setTimeout(processNext, 800); // pace API calls
+      }
+    });
+  }
+  processNext();
+}
+
+// SORT MODE
+var sortQueue = [];
+var sortIndex = 0;
+
+function initSort() {
+  var all = getAllPosts();
+  // Weighted random order same as home feed
+  sortQueue = getWeightedShuffled(all);
+  sortIndex = 0;
+  showSortCard();
+  initSortSwipe();
+}
+
+function showSortCard() {
+  var done = document.getElementById('sortDoneMsg');
+  var card = document.getElementById('sortCard');
+  if (sortIndex >= sortQueue.length) {
+    card.style.display = 'none';
+    done.style.display = 'block';
+    document.getElementById('sortProgress').textContent = '';
+    return;
+  }
+  done.style.display = 'none';
+  card.style.display = '';
+  card.style.transform = 'none';
+  card.style.opacity = '1';
+  var post = sortQueue[sortIndex];
+  document.getElementById('sortImg').src = post.image || '';
+  document.getElementById('sortUser').textContent = '@' + post.username;
+  document.getElementById('sortCaption').textContent = post.caption || '';
+  document.getElementById('sortProgress').textContent = (sortIndex + 1) + ' / ' + sortQueue.length;
+}
+
+function sortAnimateAndAdvance(dir, cb) {
+  var card = document.getElementById('sortCard');
+  card.style.transition = 'transform 0.28s ease, opacity 0.28s';
+  card.style.transform = 'translateX(' + (dir * 120) + 'px) rotate(' + (dir * 8) + 'deg)';
+  card.style.opacity = '0';
+  setTimeout(function() {
+    sortIndex++;
+    if (cb) cb();
+    showSortCard();
+  }, 280);
+}
+
+function sortSkip() { sortAnimateAndAdvance(-1, null); }
+
+function sortSave() {
+  var post = sortQueue[sortIndex];
+  if (!post) return;
+  // Snap the card back to neutral while the picker is open (a swipe may have
+  // left it half-dragged). It only animates away after Done — closing the
+  // picker without Done leaves the photo exactly where it was.
+  var card = document.getElementById('sortCard');
+  card.style.transition = 'transform 0.2s, opacity 0.2s';
+  card.style.transform = 'none';
+  card.style.opacity = '1';
+  openBoardPicker({
+    postId: post.id,
+    onDone: function() { sortAnimateAndAdvance(1, null); },
+    onCancel: function() { /* photo stays put, unsaved and unskipped */ }
+  });
+}
+
+function sortDelete() {
+  var post = sortQueue[sortIndex];
+  if (!post) return;
+  var postId = post.id;
+  document.getElementById('confirmMsg').textContent = 'Delete this photo?';
+  document.getElementById('confirmSub').textContent = 'It will be removed from all boards and your collection, permanently, on every device.';
+  document.getElementById('confirmOkBtn').textContent = 'Delete';
+  document.getElementById('confirmOkBtn').onclick = function() {
+    closeConfirm();
+    var post = SEED_POSTS.find(function(p) { return p.id === postId; });
+    SEED_POSTS = SEED_POSTS.filter(function(p) { return p.id !== postId; });
+    var boards = getBoards();
+    boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== postId; }); });
+    saveBoards(boards);
+    deleteCrop(postId);
+    sortQueue.splice(sortIndex, 1);
+    showSortCard();
+    deleteImageFileFromGitHub(post);
+    syncPostsToGitHub().then(function(r) {
+      if (!r.ok) alert('This photo was removed here, but the deletion did not sync permanently:\n\n' + r.reason);
+    });
+  };
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+// Swipe gesture for sort mode
+function initSortSwipe() {
+  var card = document.getElementById('sortCard');
+  var startX = 0, startY = 0, dx = 0;
+  var dragging = false;
+  function onStart(e) {
+    if (document.getElementById('sortPage').style.display === 'none') return;
+    var t = e.touches ? e.touches[0] : e;
+    startX = t.clientX; startY = t.clientY; dx = 0; dragging = true;
+    card.classList.add('dragging');
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    var t = e.touches ? e.touches[0] : e;
+    dx = t.clientX - startX;
+    var dy = t.clientY - startY;
+    if (Math.abs(dy) > Math.abs(dx) + 10) { dragging = false; card.style.transform = 'none'; return; }
+    e.preventDefault();
+    var rot = dx * 0.06;
+    card.style.transform = 'translateX(' + dx + 'px) rotate(' + rot + 'deg)';
+    card.style.opacity = String(Math.max(0.4, 1 - Math.abs(dx) / 300));
+  }
+  function onEnd() {
+    if (!dragging) return;
+    dragging = false;
+    card.classList.remove('dragging');
+    if (dx > 80) { sortSave(); }
+    else if (dx < -80) { sortSkip(); }
+    else { card.style.transition = 'transform 0.2s, opacity 0.2s'; card.style.transform = 'none'; card.style.opacity = '1'; }
+  }
+  card.addEventListener('touchstart', onStart, { passive: true });
+  card.addEventListener('touchmove', onMove, { passive: false });
+  card.addEventListener('touchend', onEnd);
+  card.addEventListener('mousedown', onStart);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onEnd);
+}
+
+// Lock screen
+(function() {
+  var unlocked = localStorage.getItem('lb_unlocked') === '1';
+  function boot() {
+    // Instant paint from whatever was cached last session...
+    try {
+      var cached = localStorage.getItem('lb_posts_cache');
+      if (cached) SEED_POSTS = JSON.parse(cached);
+    } catch(e) {}
+    try {
+      var cachedBoards = localStorage.getItem('lb_boards_cache') || localStorage.getItem('lb_boards');
+      if (cachedBoards) BOARDS = JSON.parse(cachedBoards);
+    } catch(e) {}
+    buildPills(); renderGrid();
+    // ...then fetch the canonical, up-to-date lists from GitHub and re-render.
+    // This is what makes every device converge on the same data, the same
+    // way posts 1-120 always did — now true for every post, and for boards.
+    loadAllPosts().then(function() { buildPills(); renderGrid(); });
+    loadAllBoards().then(function() {
+      if (document.getElementById('boardsPage').style.display !== 'none') renderBoards();
+    });
+  }
+  if (!unlocked) {
+    var overlay = document.createElement('div');
+    overlay.id = 'lockOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:#fff;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:Helvetica Neue,Helvetica,Arial,sans-serif;';
+    overlay.innerHTML = '<div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;margin-bottom:8px;">Lookbook</div>' +
+      '<input id="pwInput" type="password" placeholder="password" style="border:none;border-bottom:1px solid #e8e8e8;font-size:13px;padding:6px 0;outline:none;text-align:center;width:180px;font-family:inherit;" autofocus>' +
+      '<div id="pwError" style="font-size:11px;color:#999;min-height:16px;font-style:italic;"></div>';
+    document.body.appendChild(overlay);
+    function tryUnlock() {
+      if (document.getElementById('pwInput').value === 'lookbook') {
+        localStorage.setItem('lb_unlocked', '1');
+        overlay.remove();
+        boot();
+      } else {
+        document.getElementById('pwError').textContent = 'incorrect';
+        document.getElementById('pwInput').value = '';
+      }
+    }
+    document.getElementById('pwInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') tryUnlock(); });
+    overlay.addEventListener('click', function(e) { if (e.target === overlay) tryUnlock(); });
+  } else {
+    boot();
+  }
+})();
+
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('open');
+}
+</script>
+</body>
+</html>
