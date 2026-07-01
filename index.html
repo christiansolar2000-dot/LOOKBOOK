@@ -1732,6 +1732,12 @@ function recropFromLb() {
   var imgUrl = post.image;
   var src = getCrop(postId) || imgUrl;
 
+  if (!getGhToken()) {
+    if (!confirm('No GitHub token is set (Settings). Without it, this crop will only be saved on THIS device and will revert on other devices or if your cache is cleared — it will NOT permanently update the actual image file.\n\nContinue anyway?')) {
+      return;
+    }
+  }
+
   // Launch crop UI directly — pass the source URL, let cropImg load it natively
   function runCropUI(srcUrl, w, h) {
     var item = { file: null, srcUrl: srcUrl, top: 0, bottom: h, w: w, h: h, skip: false };
@@ -1792,7 +1798,7 @@ function showRecropModal(item, postId, isSeed, imgUrl) {
       if (currentId === postId) {
         document.getElementById('lbImg').src = dataUrl;
       }
-      // 2. Persist — this is the critical step
+      // 2. Persist locally (instant, always succeeds — this is the on-device cache)
       saveCrop(postId, dataUrl);
       // 3. Update grid cards
       document.querySelectorAll('.card').forEach(function(card) {
@@ -1807,24 +1813,50 @@ function showRecropModal(item, postId, isSeed, imgUrl) {
         var idx = uploads.findIndex(function(p) { return p.id === postId; });
         if (idx >= 0) { uploads[idx].image = dataUrl; saveUploads(uploads); }
       }
-      // 5. Push to GitHub in background
-      var token = getGhToken();
-      if (token) {
-        var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
-        var ghPath = 'images/' + postId + '.' + ext;
-        var b64 = dataUrl.split(',')[1];
-        fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-          headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-        }).then(function(r) { return r.json(); })
-          .then(function(meta) {
-            return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-              method: 'PUT',
-              headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
-            });
-          }).catch(function(e) { console.warn('recrop push failed', e); });
-      }
       renderGrid();
+
+      // 5. Push to GitHub — this is what makes the crop PERMANENT (the actual
+      // hosted image file, not just this device's local cache). Every step is
+      // checked; failure is surfaced loudly instead of swallowed.
+      var token = getGhToken();
+      var recropBtn = document.getElementById('recropBtn');
+      function setBtnStatus(text, ms) {
+        if (!recropBtn) return;
+        recropBtn.textContent = text;
+        if (ms) setTimeout(function() { recropBtn.textContent = 'Recrop'; }, ms);
+      }
+      if (!token) {
+        setBtnStatus('Saved locally only ⚠️', 3500);
+        return;
+      }
+      var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
+      var ghPath = 'images/' + postId + '.' + ext;
+      var b64 = dataUrl.split(',')[1];
+      setBtnStatus('Saving permanently…');
+      fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+        headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+      }).then(function(r) {
+        if (!r.ok) throw new Error('Could not read current file (HTTP ' + r.status + ')');
+        return r.json();
+      }).then(function(meta) {
+        if (!meta.sha) throw new Error('No sha returned for existing file');
+        return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+          method: 'PUT',
+          headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
+        });
+      }).then(function(putRes) {
+        if (!putRes.ok) {
+          return putRes.json().catch(function(){ return {}; }).then(function(errBody) {
+            throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
+          });
+        }
+        setBtnStatus('Saved permanently ✓', 2000);
+      }).catch(function(e) {
+        console.error('recrop push failed', e);
+        setBtnStatus('Recrop');
+        alert('This crop is only saved on this device — pushing it permanently to GitHub failed:\n\n' + e.message + '\n\nYour local view is updated, but other devices (and a cleared cache) will still show the old crop until this succeeds. Try again, or check your GitHub token in Settings.');
+      });
     };
     reader.readAsDataURL(croppedFile);
   }];
