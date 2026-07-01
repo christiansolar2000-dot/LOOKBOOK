@@ -552,15 +552,91 @@ function fetchImageAsDataUrl(imgUrl) {
 }
 function getGeminiKey() { return localStorage.getItem('lb_gemini_key') || ''; }
 
-const SEED_POSTS = [{"id": "001", "username": "kinaixora", "caption": "like a baptism, heavy metal lovers play, baby", "hashtags": [], "carousel_indicator": "3/5", "post_date": "November 5, 2024", "post_key": "kinaixora_baptism", "visual_tags": ["black and white", "snake print", "crop top", "black shorts", "long dark hair", "tattoos", "studio", "white background", "editorial", "grid collage", "multiple poses", "sporty", "monochrome", "athletic wear", "adidas stripe"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/001.jpg"}, {"id": "002", "username": "kaleblaw", "caption": "so hot / nate", "hashtags": [], "carousel_indicator": "2/2", "post_date": "May 7, 2024", "post_key": "kaleblaw_emerald", "visual_tags": ["beanie", "cream henley", "rosary necklace", "denim jeans", "leather bracelet", "event", "party", "dim lighting", "candid", "brown aesthetic", "layered jewelry", "cross necklace", "indie", "night out", "bar scene"], "set_members": ["020"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/002.jpg"}, {"id": "003", "username": "kothoffline", "caption": "DECEMBER 31st New Years Party...", "hashtags": [], "carousel_indicator": null, "post_date": "December 28, 2023", "post_key": "koth_nye2023", "visual_tags": ["body paint", "body writing", "red solo cups", "bed", "gold balloons", "NYE", "party flyer", "black lingerie", "braids", "natural hair", "money", "overhead shot", "warm tones", "Brooklyn", "event poster"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/003.jpg"}, {"id": "004", "username": "kothoffline", "caption": "LAUNDROMAT RAVE TONIGHT RSVP 4 ADDY...", "hashtags": [], "carousel_indicator": "1/3", "post_date": "April 26, 2024", "post_key": "koth_laundromat", "visual_tags": ["laundromat", "washing machines", "body writing", "blue paint", "teal lingerie", "fishnet", "heels", "industrial", "rave", "Brooklyn", "body writing", "party flyer", "night", "blue text on skin", "overhead lighting"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/004.jpg"}, {"id": "005", "username": "kothoffline", "caption": "PUNCTURED THIS FRIDAY MAY 24th 10pm - when my nipple piercings heal...", "hashtags": [], "carousel_indicator": null, "post_date": "May 22, 2024", "post_key": "koth_punctured", "visual_tags": ["body paint", "body writing", "rooftop", "denim jeans", "belt", "blue sky", "graffiti wall", "outdoor", "urban", "party flyer", "silver text", "sunlight", "Brooklyn", "editorial", "mixed media"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/005.jpg"}, {"id": "006", "username": "kothoffline", "caption": "TOMORROW JAN 3RD POST NEW YEARS PARTY...", "hashtags": [], "carousel_indicator": "2/4", "post_date": "January 2, 2025", "post_key": "koth_postnye2025", "visual_tags": ["black paint", "plastic sheeting", "balloons", "silver balloons", "body writing", "dark aesthetic", "monochrome", "black lingerie", "dripping paint", "grunge", "warehouse", "Brooklyn", "party flyer", "editorial", "high contrast"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/006.jpg"}, {"id": "007", "username": "kothoffline", "caption": "NYFW WAREHOUSE PARRY Saturday Sept 13th...", "hashtags": [], "carousel_indicator": "1/2", "post_date": "September 9, 2025", "post_key": "koth_nyfw_warehouse", "visual_tags": ["yellow paint", "overhead shot", "body paint", "yellow pool", "kneeling", "concrete floor", "NYFW", "warehouse", "yellow dominant", "bold color", "party flyer", "body writing", "editorial", "top-down composition", "dramatic"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/007.jpg"}, {"id": "008", "username": "kothoffline", "caption": "BLACKOUT TOMORROW Friday February 28th...", "hashtags": [], "carousel_indicator": "3/3", "post_date": "February 27, 2025", "post_key": "koth_blackout", "visual_tags": ["purple", "black", "body paint", "poster board", "fishnet", "thigh high boots", "black lingerie", "floor", "handmade poster", "toy gun prop", "Brooklyn", "party flyer", "purple dominant", "dark", "grunge"], "set_members": ["009"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/008.jpg"}, {"id": "009", "username": "kothoffline", "caption": "BLACKOUT TOMORROW Friday February 28th...", "hashtags": [], "carousel_indicator": "1/3", "post_date": "February 27, 2025", "post_key": "koth_blackout", "visual_tags": ["purple", "black", "body paint", "poster board", "fishnet", "overhead shot", "toy gun prop", "floor", "handmade poster", "Brooklyn", "party flyer", "purple dominant", "dark", "grunge", "top-down"], "set_members": ["008"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/009.jpg"}, {"id": "010", "username": "kothoffline", "caption": "LADIES NIGHT TONIGHT A costume party Friday October 24th...", "hashtags": [], "carousel_indicator": "2/2", "post_date": "October 23, 2025", "post_key": "koth_ladiesnight", "visual_tags": ["red graffiti", "concrete wall", "red hair", "body paint", "red text", "black lingerie", "staircase", "Red Bull cans", "industrial", "grungy", "red dominant", "costume party", "dark basement", "Halloween aesthetic", "underground"], "set_members": ["011"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/010.jpg"}, {"id": "011", "username": "kothoffline", "caption": "LADIES NIGHT TONIGHT A costume party Friday October 24th...", "hashtags": [], "carousel_indicator": "1/2", "post_date": "October 23, 2025", "post_key": "koth_ladiesnight", "visual_tags": ["red graffiti", "concrete wall", "red hair", "body paint", "red text", "black lingerie", "staircase", "Red Bull cans", "industrial", "grungy", "red dominant", "costume party", "dark", "Halloween aesthetic", "underground"], "set_members": ["010"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/011.jpg"}, {"id": "012", "username": "kothoffline", "caption": "POST NEW YEARS PARTY Friday Jan 2nd...", "hashtags": [], "carousel_indicator": "1/4", "post_date": "December 24, 2025", "post_key": "koth_postnye_dec25", "visual_tags": ["gold balloons", "silver balloons", "plastic sheeting", "white t-shirts", "body writing", "confetti", "three figures", "back turned", "new years", "warm lighting", "celebratory", "Brooklyn", "party flyer", "editorial", "gold and white"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/012.jpg"}, {"id": "013", "username": "kothoffline", "caption": "KøTH & LYN06 PRESENTS A NYFW WAREHøUSE PARTY (valentines edition) FEB 15th...", "hashtags": [], "carousel_indicator": null, "post_date": "February 2", "post_key": "koth_valentines_nyfw", "visual_tags": ["colorful", "craft supplies", "colored paper", "crayons", "plaid skirt", "red plaid", "overhead shot", "valentine", "art supplies", "multicolor", "playful", "Brooklyn", "NYFW", "flatlay", "school supplies aesthetic"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/013.jpg"}, {"id": "014", "username": "kothoffline", "caption": "THE UNITED STATES OF JAMAICA House Party FRIDAY NOV 28th...", "hashtags": [], "carousel_indicator": "1/2", "post_date": "November 26, 2025", "post_key": "koth_jamaica", "visual_tags": ["yellow and green", "painted backdrop", "wig", "blue and yellow hair", "yellow outfit", "knee high socks", "black and white socks", "tattoos", "stool", "seated", "editorial", "Jamaica flag colors", "studio", "bold color blocking", "party flyer"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/014.jpg"}, {"id": "015", "username": "kothoffline", "caption": "#SWAG ERA PARTY Friday November 14th...", "hashtags": ["#SWAG"], "carousel_indicator": "1/2", "post_date": "November 11, 2025", "post_key": "koth_swagera", "visual_tags": ["red", "body paint", "red background", "text on body", "arms raised", "minimal clothing", "editorial", "bold red", "studio", "party flyer", "body writing", "arms up pose", "SoHo", "high contrast", "dramatic"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/015.jpg"}, {"id": "016", "username": "kothoffline", "caption": "KOTH x RUMP PRESENTS SOLAR RETURN A warehouse party...", "hashtags": [], "carousel_indicator": "1/2", "post_date": "April 15", "post_key": "koth_solarreturn", "visual_tags": ["red balloons", "white balloons", "body writing", "birthday", "happy birthday banner", "red graffiti", "white pants", "red beret", "handmade poster", "clown imagery", "warehouse", "birthday party", "editorial", "Brooklyn", "party flyer"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/016.jpg"}, {"id": "017", "username": "kothoffline", "caption": "KOTH x RUMP #ineedabadbitch A warehouse party...", "hashtags": ["#ineedabadbitch"], "carousel_indicator": "1/2", "post_date": "April 28", "post_key": "koth_badbitch", "visual_tags": ["money", "bed", "white bedding", "body writing", "black and red text", "overhead shot", "cash", "pillow", "nude", "editorial", "flatlay", "Brooklyn", "party flyer", "bold text", "bed scene"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/017.jpg"}, {"id": "018", "username": "kothoffline", "caption": "THE POLO PARTY KOTH x RUMP x MULLETBOY A house party...", "hashtags": [], "carousel_indicator": "1/2", "post_date": "May 7", "post_key": "koth_poloparty", "visual_tags": ["polo shirt", "NY Yankees cap", "denim shorts", "American flag", "whiteboard", "back turned", "multicolor text", "preppy", "editorial", "studio", "party flyer", "colorful typography", "SoHo", "kneeling", "Polo Ralph Lauren"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/018.jpg"}, {"id": "019", "username": "kothoffline", "caption": "KOTH & RUMP PRESENT BIKINI BOTTOM ATL LOFT PARTY...", "hashtags": [], "carousel_indicator": null, "post_date": "May 14", "post_key": "koth_bikinibottom", "visual_tags": ["bikini", "American flag bikini", "body paint", "fruit", "watermelon", "pineapple", "banana", "overhead shot", "colorful", "summer", "flatlay", "multicolor", "party flyer", "Atlanta", "loft party"], "set_members": [], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/019.jpg"}, {"id": "020", "username": "kaleblaw", "caption": "", "hashtags": [], "carousel_indicator": null, "post_date": null, "post_key": "kaleblaw_emerald", "visual_tags": ["beanie", "cream henley", "rosary necklace", "denim jeans", "leather bracelet", "event", "party", "dim lighting", "candid", "brown aesthetic", "layered jewelry", "cross necklace", "indie", "night out", "bar scene"], "set_members": ["002"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/020.jpg"}, {"id": "021", "username": "kothoffline", "caption": "KOTH X RUMP PRESENTS!!!! HBD RINA! FRIDAY JUNETEENTH...", "hashtags": [], "post_date": "June 15", "post_key": "koth_juneteenth", "set_members": ["058"], "visual_tags": ["cardboard walls", "graffiti", "birthday", "fur coat", "green outfit", "party", "confetti", "dog", "birthday cake", "silver table", "colorful graffiti", "warehouse", "Juneteenth", "Brooklyn", "festive"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/021.jpg"}, {"id": "022", "username": "kothoffline", "caption": "KOTH & RUMP PRESENT \"JUST A PARTY\"...", "hashtags": [], "post_date": "May 28", "post_key": "koth_justaparty", "set_members": [], "visual_tags": ["kitchen", "cabinet writing", "American flag", "body writing", "ATL", "lean bottles", "blue and red text", "counter sitting", "Atlanta", "Caribbean", "party flyer", "handwritten", "editorial", "warehouse party", "urban"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/022.jpg"}, {"id": "023", "username": "teenage_angst_____", "caption": "TEENAGE DREAMS 05.09 ph @uulianoo...", "hashtags": [], "post_date": "September 4, 2024", "post_key": "ta_teenagedreams", "set_members": [], "visual_tags": ["white background", "photo collage", "pink hair", "punk", "golden accessories", "bathroom", "candles", "London shirt", "editorial grid", "alternative", "grunge", "party", "group photo", "youth", "DIY aesthetic"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/023.jpg"}, {"id": "024", "username": "teenage_angst_____", "caption": "teenage_angst_____ (caption cut off)...", "hashtags": [], "post_date": "September 5, 2024", "post_key": "ta_griboedov", "set_members": [], "visual_tags": ["collage", "meme format", "pink text", "DJ lineup", "club flyer", "dog with wig", "Saint Petersburg", "Russia", "Griboedov", "nail polish", "graphic design", "alternative", "rave", "underground club", "editorial"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/024.jpg"}, {"id": "025", "username": "teenage_angst_____", "caption": "02.11.24 Poster by @nervenaked", "hashtags": [], "post_date": "October 29, 2024", "post_key": "ta_vedmindom", "set_members": ["026"], "visual_tags": ["pink and black", "blood splatter", "American flag pink", "blonde hair", "club flyer", "editorial design", "VEDMINDOM", "graphic", "Halloween", "dark aesthetic", "rave poster", "Griboedov Club", "Russia", "alternative", "horror"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/025.jpg"}, {"id": "026", "username": "teenage_angst_____", "caption": "02.11.24 Poster by @nervenaked", "hashtags": [], "post_date": "October 29, 2024", "post_key": "ta_vedmindom", "set_members": ["025"], "visual_tags": ["pink and black", "blood splatter", "American flag pink", "blonde hair", "club flyer", "editorial design", "VEDMINDOM", "graphic", "Halloween", "dark aesthetic", "rave poster", "Griboedov Club", "Russia", "alternative", "horror"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/026.jpg"}, {"id": "027", "username": "joepunkk", "caption": ". @424inc Thank u @guillermoandrade...", "hashtags": [], "post_date": "June 25, 2025", "post_key": "joe_424paris", "set_members": ["028"], "visual_tags": ["blazer", "wide leg jeans", "aviator sunglasses", "white tee", "studio", "white background", "fashion editorial", "424inc", "Paris", "long dark hair", "loafers", "layered necklace", "menswear", "minimal", "clean aesthetic"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/027.jpg"}, {"id": "028", "username": "joepunkk", "caption": ". @424inc Thank u @guillermoandrade...", "hashtags": [], "post_date": "June 25, 2025", "post_key": "joe_424paris", "set_members": ["027"], "visual_tags": ["linen shirt", "wide leg jeans", "aviator sunglasses", "open shirt", "cobblestone", "outdoor", "Paris", "Porsche", "street style", "424inc", "tattoo top", "beige", "editorial", "sunny", "fashion week"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/028.jpg"}, {"id": "029", "username": "joepunkk", "caption": ". @424inc", "hashtags": [], "post_date": "January 30, 2025", "post_key": "joe_424jan", "set_members": [], "visual_tags": ["graphic tee", "wide leg jeans", "long dark hair", "tattoos", "white background", "studio", "fashion editorial", "424inc", "green print", "denim", "menswear", "minimal", "shadow", "alternative", "editorial"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/029.jpg"}, {"id": "030", "username": "joepunkk", "caption": ".", "hashtags": [], "post_date": "January 26, 2025", "post_key": "joe_bw", "set_members": [], "visual_tags": ["black and white", "shirtless", "black trousers", "studded belt", "wall", "monochrome", "candid", "tattoo", "editorial", "dark", "masculine", "alternative", "chain necklace", "gritty", "artistic"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/030.jpg"}, {"id": "031", "username": "joepunkk", "caption": ".", "hashtags": [], "post_date": "January 25, 2025", "post_key": "joe_tokyo_book", "set_members": ["032"], "visual_tags": ["red hair", "punk", "barcode", "Japanese text", "vintage magazine", "open mouth", "tongue", "editorial", "Tokyo", "alternative", "grunge", "close-up", "two people", "blonde hair", "The Casualties"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/031.jpg"}, {"id": "032", "username": "joepunkk", "caption": ".", "hashtags": [], "post_date": "January 25, 2025", "post_key": "joe_tokyo_book", "set_members": ["031"], "visual_tags": ["black leather coat", "long coat", "black outfit", "beanie", "red curtain", "Tokyo", "dramatic", "neck tattoo", "editorial", "dark red", "moody", "fashion", "alternative", "chain necklace", "masculine"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/032.jpg"}, {"id": "033", "username": "joepunkk", "caption": ". @lorenzo_bonanni", "hashtags": [], "post_date": "June 24, 2024", "post_key": "joe_paris_bw", "set_members": [], "visual_tags": ["black and white", "tank top", "wide trousers", "arms crossed", "Paris street", "architectural door", "tattoos", "long dark hair", "monochrome", "editorial", "fashion", "masculine", "loafers", "belt", "street style"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/033.jpg"}, {"id": "034", "username": "joepunkk", "caption": ".", "hashtags": [], "post_date": "June 24, 2023", "post_key": "joe_paris_street", "set_members": [], "visual_tags": ["black tee", "Cole graphic", "slicked hair", "smoking", "Paris sidewalk", "candid", "rings", "bracelets", "boots", "dark trousers", "street", "editorial", "urban", "moody", "sitting"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/034.jpg"}, {"id": "035", "username": "techg1rls", "caption": "#TECHG1RLS45", "hashtags": ["#TECHG1RLS45"], "post_date": "December 28, 2023", "post_key": "tech_45", "set_members": [], "visual_tags": ["white background", "collage grid", "graphic tee", "Crystal Castles", "cap", "black cap", "techgirls", "Russian text", "alternative", "blurred face", "editorial", "DIY", "streetwear", "black pants", "indie"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/035.jpg"}, {"id": "036", "username": "techg1rls", "caption": "#TECHGIRLS49", "hashtags": ["#TECHGIRLS49"], "post_date": "December 30, 2023", "post_key": "tech_49", "set_members": [], "visual_tags": ["3x3 grid", "beanie", "black hat", "techg1rls logo", "pink text", "digital effect", "glitch", "close-up", "face", "alternative", "electronic", "rave", "editorial", "sparkle effect", "self-portrait"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/036.jpg"}, {"id": "037", "username": "techg1rls", "caption": "#TECHG1RLS54", "hashtags": ["#TECHG1RLS54"], "post_date": "January 1, 2024", "post_key": "tech_54", "set_members": ["038"], "visual_tags": ["Nokia phone", "custom print", "techg1rls logo", "product shot", "white phone", "retro phone", "gun graphic", "Y2K", "editorial", "flat lay", "grey background", "techgirls", "prop", "DIY", "branded"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/037.jpg"}, {"id": "038", "username": "techg1rls", "caption": "#TECHG1RLS54", "hashtags": ["#TECHG1RLS54"], "post_date": "January 1, 2024", "post_key": "tech_54", "set_members": ["037"], "visual_tags": ["Nokia phone", "custom print", "techg1rls logo", "product shot", "white phone", "retro phone", "gun graphic", "Y2K", "editorial", "flat lay", "grey background", "techgirls", "prop", "DIY", "branded"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/038.jpg"}, {"id": "039", "username": "techg1rls", "caption": "#TECHG1RLS57", "hashtags": ["#TECHG1RLS57"], "post_date": "January 3, 2024", "post_key": "tech_57", "set_members": [], "visual_tags": ["fishnet mask", "cap", "Techgirls 4Ever", "white background", "stacked images", "close-up", "alternative", "DIY", "layered", "editorial", "indie", "self-portrait", "experimental", "black outfit", "Y2K"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/039.jpg"}, {"id": "040", "username": "techg1rls", "caption": "#TECHG1RLS68", "hashtags": ["#TECHG1RLS68"], "post_date": "January 9, 2024", "post_key": "tech_68", "set_members": [], "visual_tags": ["glitch art", "pink hair", "DJ set", "laptop", "Pioneer DJ", "club", "digital overlay", "matrix text", "pink aesthetic", "rave", "techgirls", "editorial", "concert", "dark", "cyberpunk"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/040.jpg"}, {"id": "041", "username": "techg1rls", "caption": "#TECHG1RLS82", "hashtags": ["#TECHG1RLS82"], "post_date": "January 17, 2024", "post_key": "tech_82", "set_members": [], "visual_tags": ["pink checkerboard", "collage", "blonde", "tattoos", "pink hat", "body paint", "Y2K", "techgirls", "meme", "Barbie", "censored", "editorial", "pink dominant", "alternative", "grid layout"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/041.jpg"}, {"id": "042", "username": "techg1rls", "caption": "#TECHG1RLS72 #THETECHG1RLS", "hashtags": ["#TECHG1RLS72", "#THETECHG1RLS"], "post_date": "January 11, 2024", "post_key": "tech_72", "set_members": [], "visual_tags": ["search bar UI", "pink hair", "blonde hair", "AI face", "digital art", "split face", "stacked layout", "white background", "editorial", "uncanny", "techgirls", "portrait", "alternative", "morphing", "graphic design"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/042.jpg"}, {"id": "043", "username": "techg1rls", "caption": "#TECHG1RLS229", "hashtags": ["#TECHG1RLS229"], "post_date": "April 25, 2024", "post_key": "tech_229", "set_members": [], "visual_tags": ["The Sims", "3D render", "bikini", "cap", "collage", "TECHG1RLS WILL NEVER DIE", "game aesthetic", "Y2K", "digital", "four panel", "alternative", "cyber", "techgirls", "green background", "teal background"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/043.jpg"}, {"id": "044", "username": "techg1rls", "caption": "#TECHG1RLS285", "hashtags": ["#TECHG1RLS285"], "post_date": "July 6, 2024", "post_key": "tech_285", "set_members": [], "visual_tags": ["TECHG1RLS UNITE", "bold typography", "three panel", "pink hair", "dark background", "dollar signs", "graphic design", "editorial", "alternative", "techgirls", "high contrast", "black and white", "rave", "club aesthetic", "punk"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/044.jpg"}, {"id": "045", "username": "techg1rls", "caption": "#TECHG1RLS318 #TECHG1RLS4L tats by @dirtinmyskin", "hashtags": ["#TECHG1RLS318", "#TECHG1RLS4L"], "post_date": "September 13, 2024", "post_key": "tech_318", "set_members": [], "visual_tags": ["neck tattoo", "techg1rls tattoo", "pink hair", "bobby pins", "white tee", "star tattoo", "close-up", "dual image", "grey background", "hand on neck", "alternative", "body art", "portrait", "tattoo culture", "Y2K"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/045.jpg"}, {"id": "046", "username": "techg1rls", "caption": "#TECHG1RLS352", "hashtags": ["#TECHG1RLS352"], "post_date": "November 18, 2024", "post_key": "tech_352", "set_members": [], "visual_tags": ["WE DON'T GIVE A FUCK", "bold text", "graphic design", "photo inside letters", "blonde", "black outfit", "city", "techgirls", "editorial", "poster", "party slogan", "high contrast", "white and black", "rave aesthetic", "punk"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/046.jpg"}, {"id": "047", "username": "techg1rls", "caption": "#TECHG1RLS368", "hashtags": ["#TECHG1RLS368"], "post_date": "December 8, 2024", "post_key": "tech_368", "set_members": [], "visual_tags": ["BELIEVE IN MUSIC", "split panel", "galaxy hat", "blonde", "collage", "Y2K", "techgirls", "meme", "editorial", "God rolled me that way", "alternative", "music culture", "DIY", "nostalgic", "internet culture"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/047.jpg"}, {"id": "048", "username": "techg1rls", "caption": "#TECHG1RLS405", "hashtags": ["#TECHG1RLS405"], "post_date": "January 24, 2025", "post_key": "tech_405", "set_members": [], "visual_tags": ["angel halo", "purple hair", "bikini", "high techg1rl", "bold text", "white wings", "dark background", "techgirls", "editorial", "bathroom", "alternative", "surreal", "graphic overlay", "club aesthetic", "rave"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/048.jpg"}, {"id": "049", "username": "techg1rls", "caption": "#TECHG1RLS433", "hashtags": ["#TECHG1RLS433"], "post_date": "February 23, 2025", "post_key": "tech_433", "set_members": [], "visual_tags": ["flat lay", "Chanel", "boombox", "cassette", "cigarettes", "phone case", "No habla bullshit", "overhead shot", "dark ground", "jewelry", "techgirls", "text overlay", "Spanish", "cross", "editorial"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/049.jpg"}, {"id": "050", "username": "techg1rls", "caption": "#TECHG1RLS432", "hashtags": ["#TECHG1RLS432"], "post_date": "February 22, 2025", "post_key": "tech_432", "set_members": [], "visual_tags": ["pink cap", "techgirlz", "9x grid", "blonde", "bikini", "midriff", "piercings", "techgirls", "pink dominant", "editorial", "3x3", "multiple poses", "banner background", "alternative", "rave"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/050.jpg"}, {"id": "051", "username": "techg1rls", "caption": "#TECHG1RLS428", "hashtags": ["#TECHG1RLS428"], "post_date": "February 18, 2025", "post_key": "tech_428", "set_members": [], "visual_tags": ["HARDSTYLE", "photo booth", "DJ controller", "pink hat", "black hair", "long dark hair", "Mac photobooth", "film strip", "techgirls", "alternative", "rave", "duo", "graphic tee", "mirror", "Y2K"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/051.jpg"}, {"id": "052", "username": "techg1rls", "caption": "#TECHG1RLS460", "hashtags": ["#TECHG1RLS460"], "post_date": "March 23, 2025", "post_key": "tech_460", "set_members": [], "visual_tags": ["TECHG1RLS hat", "black hat", "purple hair", "cat ears", "duo", "kissing", "chain necklace", "censored", "editorial", "techgirls", "Y2K", "alternative", "portrait", "close-up", "dark aesthetic"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/052.jpg"}, {"id": "053", "username": "techg1rls", "caption": "#TECHG1RLS483", "hashtags": ["#TECHG1RLS483"], "post_date": "April 18, 2025", "post_key": "tech_483", "set_members": [], "visual_tags": ["confetti", "party", "three girls", "bikini", "American flag socks", "colorful", "body writing", "indoor party", "pink dominant", "DC shoes", "techgirls", "editorial", "celebration", "rave", "colorful"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/053.jpg"}, {"id": "054", "username": "techg1rls", "caption": "#TECHG1RLS498", "hashtags": ["#TECHG1RLS498"], "post_date": "May 2, 2025", "post_key": "tech_498", "set_members": [], "visual_tags": ["fur coat", "purple fur", "Coca-Cola can", "techg1rls branded", "bikini top", "graffiti wall", "blurred face", "outdoor", "editorial", "alternative", "branded prop", "street", "purple dominant", "close-up", "Y2K"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/054.jpg"}, {"id": "055", "username": "techg1rls", "caption": "#TECHG1RLS500", "hashtags": ["#TECHG1RLS500"], "post_date": "May 4, 2025", "post_key": "tech_500", "set_members": [], "visual_tags": ["gold metallic pants", "gold bikini", "fur coat", "striped black white fur", "weed leaf pattern", "cat ears hat", "three panel", "white background", "Chanel bag", "heels", "editorial", "techgirls", "Y2K", "golden", "alternative"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/055.jpg"}, {"id": "056", "username": "techg1rls", "caption": "#TECHG1RLS507 #HAPPY #MOTHERS #DAY", "hashtags": ["#TECHG1RLS507", "#HAPPY", "#MOTHERS", "#DAY"], "post_date": "May 11, 2025", "post_key": "tech_507", "set_members": [], "visual_tags": ["gold gun", "gold metallic", "pink fur", "three panel", "white cap", "aviator sunglasses", "editorial", "techgirls", "Y2K", "platinum blonde", "black leather pants", "gold background", "Mothers Day", "alternative", "luxury"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/056.jpg"}, {"id": "057", "username": "techg1rls", "caption": "#TECHG1RLS506 #MIAMITN #TIXINBIO", "hashtags": ["#TECHG1RLS506", "#MIAMITN", "#TIXINBIO"], "post_date": "May 10, 2025", "post_key": "tech_506", "set_members": [], "visual_tags": ["4x4 grid", "collage", "group photo", "DJ", "diverse styles", "techgirls", "pink aesthetic", "editorial", "rave", "club", "event promo", "Miami", "alternative", "community", "Y2K"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/057.jpg"}, {"id": "058", "username": "kothoffline", "caption": "KOTH X RUMP PRESENTS", "hashtags": [], "post_date": "June 15", "post_key": "koth_juneteenth", "set_members": ["021"], "visual_tags": ["cardboard walls", "graffiti", "birthday", "party", "confetti", "dog", "Brooklyn", "Juneteenth", "festive", "warehouse", "colorful", "handwritten text", "second slide", "editorial", "celebration"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/058.jpg"}, {"id": "059", "username": "techg1rls", "caption": "#TECHG1RLS555", "hashtags": ["#TECHG1RLS555"], "post_date": "July 1, 2025", "post_key": "tech_555", "set_members": [], "visual_tags": ["handstand", "chain link fence", "I'M WITH TECHG1RLS", "bold text overlay", "acrobatic", "outdoor", "techgirls", "cheerleader skirt", "editorial", "grass", "alternative", "typography", "street", "athletic", "dynamic"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/059.jpg"}, {"id": "060", "username": "techg1rls", "caption": "#TECHG1RLS426", "hashtags": ["#TECHG1RLS426"], "post_date": "February 17, 2025", "post_key": "tech_426", "set_members": [], "visual_tags": ["music notes", "pink hat", "bikini", "tattoos", "white background", "editorial design", "techgirls script", "heart frames", "collage", "TechGirls cursive", "pink dominant", "Y2K", "scrapbook", "alternative", "music aesthetic"], "notes": "", "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/060.jpg"}, {"id": "061", "username": "techg1rls", "caption": "I WENT TO A TECHG1RLS SHOW AND BASICALLY I THINK I SAW TWO ANGELS PLAYING SKRILLEX TILL I ASCENDED TO A DIFFERENT DIMENSION", "hashtags": ["#COME", "#PARTY", "#WITH", "#US", "#TOURTIXINBIO"], "carousel_indicator": "1/2", "post_date": "April 14", "post_key": "techg1rls_skrillex_angels", "visual_tags": ["live show", "concert", "angel wings", "silver headpiece", "crowd", "dark", "purple light", "glitter", "rave", "performance", "text overlay", "two girls", "stage"], "set_members": ["062"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/061.png"}, {"id": "062", "username": "techg1rls", "caption": "IF I DON'T WANT TO DO IT I AM NOT GOING TO DO IT", "hashtags": ["#COME", "#PARTY", "#WITH", "#US", "#TOURTIXINBIO"], "carousel_indicator": "2/2", "post_date": "April 14", "post_key": "techg1rls_skrillex_angels", "visual_tags": ["live show", "concert", "microphone", "bending over", "dark", "purple light", "rave", "performance", "text overlay", "stage", "crowd"], "set_members": ["061"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/062.png"}, {"id": "063", "username": "techg1rls", "caption": "FUCK ASTROLOGY WHAT'S YOUR FAVORITE TECHG1RL HAT", "hashtags": ["#SO", "#WHATS", "#UR", "#TECHG1RL", "#HAT"], "carousel_indicator": "1/2", "post_date": "April 21", "post_key": "techg1rls_fuck_astrology_hats", "visual_tags": ["hats", "fashion editorial", "collage", "8 models", "text overlay", "white background", "orange hair", "tattoos", "tube top", "branded", "lookbook", "diversity", "caps"], "set_members": ["064"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/063.png"}, {"id": "064", "username": "techg1rls", "caption": "FUCK ASTROLOGY WHAT'S YOUR FAVORITE TECHG1RL HAT — slide 2", "hashtags": ["#SO", "#WHATS", "#UR", "#TECHG1RL", "#HAT"], "carousel_indicator": "2/2", "post_date": "April 21", "post_key": "techg1rls_fuck_astrology_hats", "visual_tags": ["hats", "fashion editorial", "3x4 grid", "white background", "orange hair", "pink hair", "tattoos", "tube top", "branded", "lookbook", "diversity", "caps", "brimmed hats"], "set_members": ["063"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/064.png"}, {"id": "065", "username": "techg1rls", "caption": "TECHG1RLS SPOTTED MOST GORGEOUS G1RLS IN THE WORLD — BADDIES OF THE MONTH", "hashtags": ["#TECHG1RLS", "#TAGUS", "#FEATURED"], "carousel_indicator": "", "post_date": "April 16", "post_key": "techg1rls_baddies_of_the_month", "visual_tags": ["collage", "scrapbook", "fan submission", "community", "pink", "branded caps", "street style", "text overlay", "purple", "chaotic layout", "bikini", "outdoor", "snow", "fan art", "logo"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/065.png"}, {"id": "066", "username": "techg1rls", "caption": "have you considered doing nothing about it?", "hashtags": ["#WEREDOINGSOMETHINGABOUTIT", "#TOUR", "#MAYS1ST", "#YAY"], "carousel_indicator": "", "post_date": "April 19", "post_key": "techg1rls_doing_nothing", "visual_tags": ["white hat", "bow", "fishnet", "green top", "blonde hair", "phone", "gun graphic", "editorial", "light background", "tattoo", "side profile", "y2k", "soft", "pastel"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/066.png"}, {"id": "067", "username": "techg1rls", "caption": "These are both shrines — who do you worship?", "hashtags": ["#TOUR", "#TN", "#NYC", "#MERCHAVALIABLE"], "carousel_indicator": "1/5", "post_date": "May 1", "post_key": "techg1rls_shrines_tee", "visual_tags": ["graphic tee", "photo print shirt", "black and white", "two tees", "blonde", "editorial", "white background", "pink bracket", "minimalist", "merchandise", "fashion"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/067.png"}, {"id": "068", "username": "techg1rls", "caption": "DROP COMING JUNE 7TH", "hashtags": [], "carousel_indicator": "", "post_date": "May 26", "post_key": "techg1rls_cult_member_hats_drop", "visual_tags": ["hats", "3x4 grid", "fashion editorial", "pink", "blue", "silver", "gold", "metallic", "tiara", "horns", "bunny ears", "bow", "decorated hats", "white background", "pink hair", "brown hair"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/068.png"}, {"id": "069", "username": "techg1rls", "caption": "TECHG1RLS #CANADA — Vancouver, Montreal, Toronto", "hashtags": ["#SUPRISE", "#COMING", "#CANADA", "#TIXINBIO"], "carousel_indicator": "", "post_date": "June 19", "post_key": "techg1rls_canada_tour", "visual_tags": ["tour flyer", "pink", "blonde", "club", "poster", "handmade text", "collage", "three women", "cigarette", "dark", "bar", "Fortune Sound Club", "Bar Le Ritz", "Cafeteria Toronto"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/069.png"}, {"id": "070", "username": "techg1rls", "caption": "Today: IT'S OKAY TO MAKE MISTAKES / Tomorrow: JUST KIDDING YOU ARE UNDER ARREST", "hashtags": ["#TOUR", "#OVER", "#AMAZING", "#CITYS", "#HATS"], "carousel_indicator": "", "post_date": "June 7", "post_key": "techg1rls_today_tomorrow", "visual_tags": ["split panel", "two panels", "pink bikini", "green fishnet", "silver gun", "baseball bat", "meme format", "text overlay", "white background", "pink hair", "white hair", "editorial", "humor"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/070.png"}, {"id": "071", "username": "techg1rls", "caption": "What does my dream mean?", "hashtags": ["#techg1rls", "#means", "#following", "#ur", "#dreams"], "carousel_indicator": "", "post_date": "Jun 23", "post_key": "techg1rls_dream_mean", "visual_tags": ["lying down", "carpet", "pink", "two girls", "text overlay", "pink top", "white top", "phone", "pink hair", "soft", "dreamy", "MGMT", "blush"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/071.png"}, {"id": "072", "username": "techg1rls", "caption": "#young #notpregnant #gettingmoney #blessed #gorgeous", "hashtags": ["#gorgeousg1rls", "#gettingmoney"], "carousel_indicator": "", "post_date": "Jun 25", "post_key": "techg1rls_young_gorgeous", "visual_tags": ["kitchen", "pink hair", "sunglasses", "smoke", "vaping", "candid", "selfie", "hashtag overlay", "blue text", "knit top", "bow", "tattoo", "indoor", "home", "real life"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/072.png"}, {"id": "073", "username": "nico.nastii", "caption": "soy #princesa 👑", "hashtags": ["#princesa"], "carousel_indicator": "1/2", "post_date": "April 29", "post_key": "nico_nastii_princesa", "visual_tags": ["platinum blonde", "tiara", "black jersey", "stars", "#68", "white background", "editorial", "studio", "Los Angeles", "tattoo", "strong pose", "fashion"], "set_members": ["074"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/073.png"}, {"id": "074", "username": "nico.nastii", "caption": "soy #princesa 👑 — slide 2", "hashtags": ["#princesa"], "carousel_indicator": "2/2", "post_date": "April 29", "post_key": "nico_nastii_princesa", "visual_tags": ["platinum blonde", "tiara", "black jersey", "stars", "#68", "white background", "editorial", "studio", "hands on head", "frontal", "fashion", "intense gaze"], "set_members": ["073"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/074.png"}, {"id": "075", "username": "aleqth.archive", "caption": "", "hashtags": [], "carousel_indicator": "1/11", "post_date": "November 20, 2025", "post_key": "aleqth_photo_stack", "visual_tags": ["photo stack", "polaroid effect", "mirror selfie", "dreadlocks", "black turtleneck", "grey jeans", "cargo pants", "backlit", "editorial", "studio", "metallic background", "halo light", "stacked prints"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/075.png"}, {"id": "076", "username": "aleqth.archive", "caption": "", "hashtags": [], "carousel_indicator": "", "post_date": "February 9", "post_key": "aleqth_studio_clownfish", "visual_tags": ["rehearsal studio", "drums", "microphone", "speakers", "denim jeans", "black hoodie", "clownfish emoji", "humor", "candid", "music", "band practice", "ambient", "lo-fi"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/076.png"}, {"id": "077", "username": "aleqth.archive", "caption": "/web — bertholt brecht dot com", "hashtags": [], "carousel_indicator": "", "post_date": "February 24", "post_key": "aleqth_flag_glitch", "visual_tags": ["American flag", "red white blue", "stars and stripes", "glitch art", "sequencer", "digital", "software UI", "bertholt brecht", "abstract", "net art", "internet aesthetic"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/077.png"}, {"id": "078", "username": "ankle.studio", "caption": "ankle.website", "hashtags": [], "carousel_indicator": "", "post_date": "October 16, 2024", "post_key": "ankle_studio_logo_overlay", "visual_tags": ["brand logo", "AR overlay", "stickers", "colorful", "lying down", "wood floor", "pink top", "heels", "overhead shot", "graphic design", "internet brand", "playful", "chaotic", "pattern"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/078.png"}, {"id": "079", "username": "hotamericangirls", "caption": "I ❤️ Hot American Girls — Shot by @jordanhubert334", "hashtags": ["#hotamericangirls", "#merchsoonbitches"], "carousel_indicator": "1/4", "post_date": "June 13, 2025", "post_key": "hotamericangirls_flag", "visual_tags": ["American flag", "two girls", "tank top", "branded tee", "angel wings", "backdrop", "patriotic", "blonde", "dark hair", "editorial", "red white blue", "nose ring", "heart necklace", "attitude"], "set_members": ["080", "081", "082"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/079.jpg"}, {"id": "080", "username": "hotamericangirls", "caption": "I ❤️ Hot American Girls — Shot by @jordanhubert334 — slide 2", "hashtags": ["#hotamericangirls", "#merchsoonbitches"], "carousel_indicator": "2/4", "post_date": "June 13, 2025", "post_key": "hotamericangirls_flag", "visual_tags": ["American flag", "two girls", "tank top", "branded tee", "angel wings", "blonde", "dark hair", "editorial", "red white blue", "cigarette", "close-up", "nails", "sultry"], "set_members": ["079", "081", "082"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/080.jpg"}, {"id": "081", "username": "hotamericangirls", "caption": "I ❤️ Hot American Girls — Shot by @jordanhubert334 — slide 2 close-up", "hashtags": ["#hotamericangirls", "#merchsoonbitches"], "carousel_indicator": "2/4", "post_date": "June 13, 2025", "post_key": "hotamericangirls_flag", "visual_tags": ["American flag", "two girls", "tank top", "branded tee", "angel wings", "cigarette", "close-up", "blonde", "dark hair", "heart necklace", "nose ring", "editorial", "red white blue"], "set_members": ["079", "080", "082"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/081.jpg"}, {"id": "082", "username": "hotamericangirls", "caption": "I ❤️ Hot American Girls — Shot by @jordanhubert334 — slide 1 wide", "hashtags": ["#hotamericangirls", "#merchsoonbitches"], "carousel_indicator": "1/4", "post_date": "June 13, 2025", "post_key": "hotamericangirls_flag", "visual_tags": ["American flag", "two girls", "tank top", "branded tee", "angel wings", "wide shot", "blonde", "dark hair", "editorial", "red white blue", "patriotic"], "set_members": ["079", "080", "081"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/082.jpg"}, {"id": "083", "username": "hotamericangirls", "caption": "grayson shot by me — Directed by me + @sleepwthcrumbs", "hashtags": [], "carousel_indicator": "6/7", "post_date": "September 3, 2025", "post_key": "hotamericangirls_grayson", "visual_tags": ["American flag dress", "red white stripes", "combat boots", "lying on floor", "mattress", "bedroom", "candid", "dark", "Crystal Castles", "punk", "tangled hair", "mess"], "set_members": ["084"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/083.jpg"}, {"id": "084", "username": "hotamericangirls", "caption": "grayson shot by me — Directed by me + @sleepwthcrumbs", "hashtags": [], "carousel_indicator": "5/7", "post_date": "September 3, 2025", "post_key": "hotamericangirls_grayson", "visual_tags": ["stars jacket", "stripes sleeve", "lying down", "mattress", "choker", "pink socks", "magazines", "stickers", "bedroom floor mess", "dark", "soft lighting", "overhead", "Palaces"], "set_members": ["083"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/084.jpg"}, {"id": "085", "username": "hotamericangirls", "caption": "@mvuwlo 4 #hotamericangirls shirt & sweatbands", "hashtags": ["#hotamericangirls"], "carousel_indicator": "1/7", "post_date": "October 23, 2025", "post_key": "hotamericangirls_sweatbands", "visual_tags": ["branded tee", "sweatbands", "red white blue", "hair over face", "double panel", "shelf", "indoor", "blonde", "bracelets", "dynamic pose", "tossing hair"], "set_members": ["086", "087", "088"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/085.jpg"}, {"id": "086", "username": "hotamericangirls", "caption": "@mvuwlo 4 #hotamericangirls shirt & sweatbands — slide 2", "hashtags": ["#hotamericangirls"], "carousel_indicator": "2/7", "post_date": "October 23, 2025", "post_key": "hotamericangirls_sweatbands", "visual_tags": ["hoodie open", "branded tee", "sunglasses", "double panel", "white background", "blonde", "casual", "relaxed", "stomach", "cool girl"], "set_members": ["085", "087", "088"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/086.jpg"}, {"id": "087", "username": "hotamericangirls", "caption": "@mvuwlo 4 #hotamericangirls shirt & sweatbands — slide 4", "hashtags": ["#hotamericangirls"], "carousel_indicator": "4/7", "post_date": "October 23, 2025", "post_key": "hotamericangirls_sweatbands", "visual_tags": ["sunglasses", "lollipop", "hoodie", "checkered floor", "black white", "sitting", "double panel", "bottle", "indoor", "editorial", "candid"], "set_members": ["085", "086", "088"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/087.jpg"}, {"id": "088", "username": "hotamericangirls", "caption": "@mvuwlo 4 #hotamericangirls shirt & sweatbands — slide 6", "hashtags": ["#hotamericangirls"], "carousel_indicator": "6/7", "post_date": "October 23, 2025", "post_key": "hotamericangirls_sweatbands", "visual_tags": ["checkered floor", "black white", "lying down", "laughing", "hands over face", "sweatbands", "double panel", "energy", "editorial", "dynamic"], "set_members": ["085", "086", "087"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/088.jpg"}, {"id": "089", "username": "hotamericangirls", "caption": "HAG$ ❤️🤍💙🤑🤑", "hashtags": [], "carousel_indicator": "3/3", "post_date": "April 6", "post_key": "hotamericangirls_hags_money", "visual_tags": ["money", "dollar bills", "wood floor", "lying face down", "blue navy skirt", "tattoo", "candid", "tangled hair", "dark", "two girls", "overhead shot"], "set_members": ["090", "091"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/089.jpg"}, {"id": "090", "username": "hotamericangirls", "caption": "HAG$ ❤️🤍💙🤑🤑 — slide 2", "hashtags": [], "carousel_indicator": "2/3", "post_date": "April 6", "post_key": "hotamericangirls_hags_money", "visual_tags": ["money", "dollar bills", "wood floor", "lying down", "blue shorts", "glasses", "double panel", "two girls", "HAG$ spelled in money", "combat boots", "red white blue sweatband"], "set_members": ["089", "091"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/090.jpg"}, {"id": "091", "username": "hotamericangirls", "caption": "HAG$ ❤️🤍💙🤑🤑 — slide 1", "hashtags": [], "carousel_indicator": "1/3", "post_date": "April 6", "post_key": "hotamericangirls_hags_money", "visual_tags": ["money", "dollar bills", "wood floor", "lying", "Adidas tee", "two girls", "HAG$ spelled in money", "editorial", "dark hair", "double panel", "Los Angeles"], "set_members": ["089", "090"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/091.jpg"}, {"id": "092", "username": "hotamericangirls", "caption": "@karima_hamid_ 4 #hotamericangirls 💖🇺🇸💝🧚🏾🤩 byme — slide 6", "hashtags": ["#hotamericangirls"], "carousel_indicator": "6/6", "post_date": "", "post_key": "hotamericangirls_karima_bluewig", "visual_tags": ["blue wig", "teal hair", "checkered floor", "overhead shot", "lying down", "white top", "lace", "dark skin", "bracelet", "editorial", "body", "fashion"], "set_members": ["093", "094", "095", "096", "097"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/092.jpg"}, {"id": "093", "username": "hotamericangirls", "caption": "@karima_hamid_ 4 #hotamericangirls 💖🇺🇸💝🧚🏾🤩 byme — slide 5", "hashtags": ["#hotamericangirls"], "carousel_indicator": "5/6", "post_date": "", "post_key": "hotamericangirls_karima_bluewig", "visual_tags": ["blue wig", "teal hair", "checkered floor", "splits", "denim shorts", "wine glass", "smoking", "seated", "double panel", "editorial", "dark skin"], "set_members": ["092", "094", "095", "096", "097"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/093.jpg"}, {"id": "094", "username": "hotamericangirls", "caption": "@karima_hamid_ 4 #hotamericangirls 💖🇺🇸💝🧚🏾🤩 byme — slide 4", "hashtags": ["#hotamericangirls"], "carousel_indicator": "4/6", "post_date": "", "post_key": "hotamericangirls_karima_bluewig", "visual_tags": ["blue wig", "teal hair", "checkered floor", "graphic tee", "photo print shirt", "kneeling", "Union Jack shorts", "double panel", "editorial", "dark skin"], "set_members": ["092", "093", "095", "096", "097"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/094.jpg"}, {"id": "095", "username": "hotamericangirls", "caption": "@karima_hamid_ 4 #hotamericangirls 💖🇺🇸💝🧚🏾🤩 byme — slide 1", "hashtags": ["#hotamericangirls"], "carousel_indicator": "1/6", "post_date": "", "post_key": "hotamericangirls_karima_bluewig", "visual_tags": ["blue wig", "teal hair", "white background", "tank top", "branded", "multiple cigarettes", "double panel", "close-up", "editorial", "dark skin", "power pose"], "set_members": ["092", "093", "094", "096", "097"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/095.jpg"}, {"id": "096", "username": "hotamericangirls", "caption": "@karima_hamid_ 4 #hotamericangirls 💖🇺🇸💝🧚🏾🤩 byme — slide 2", "hashtags": ["#hotamericangirls"], "carousel_indicator": "2/6", "post_date": "", "post_key": "hotamericangirls_karima_bluewig", "visual_tags": ["blue wig", "teal hair", "checkered floor", "back turned", "Union Jack shorts", "lace underwear", "double panel", "editorial", "dark skin", "kneeling"], "set_members": ["092", "093", "094", "095", "097"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/096.jpg"}, {"id": "097", "username": "hotamericangirls", "caption": "@karima_hamid_ 4 #hotamericangirls 💖🇺🇸💝🧚🏾🤩 byme — slide 3", "hashtags": ["#hotamericangirls"], "carousel_indicator": "3/6", "post_date": "", "post_key": "hotamericangirls_karima_bluewig", "visual_tags": ["blue wig", "teal hair", "multiple cigarettes", "close-up", "double panel", "dark background", "editorial", "dark skin", "beauty shot", "cigarettes fan"], "set_members": ["092", "093", "094", "095", "096"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/097.jpg"}, {"id": "098", "username": "jordanhubert334", "caption": "First time going in my bathtub. Feel like I need to take a shower now. …. scared of nyc bathtubs", "hashtags": [], "carousel_indicator": "", "post_date": "February 25, 2025", "post_key": "jordanhubert_bathtub", "visual_tags": ["bathtub", "bathroom", "collage", "photo grid", "dark hair", "black bra", "wet", "shower", "tiles", "NYC", "film grain", "editorial", "multiple shots", "moody"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/098.jpg"}, {"id": "099", "username": "jordanhubert334", "caption": "💗", "hashtags": [], "carousel_indicator": "1/2", "post_date": "September 7, 2025", "post_key": "jordanhubert_roadside", "visual_tags": ["night", "roadside", "highway", "dark", "hooded sweatshirt", "sitting", "knees up", "headlights", "outdoor", "candid", "editorial", "moody"], "set_members": ["100"], "censor_boxes": [{"x": 0, "y": 48, "w": 48, "h": 52}], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/099.jpg"}, {"id": "100", "username": "jordanhubert334", "caption": "💗 — slide 2", "hashtags": [], "carousel_indicator": "2/2", "post_date": "September 7, 2025", "post_key": "jordanhubert_roadside", "visual_tags": ["night", "roadside", "double panel", "crouching", "lying", "dark", "hooded sweatshirt", "road", "headlights", "candid", "editorial"], "set_members": ["099"], "censor_boxes": [{"x": 0, "y": 28, "w": 42, "h": 20}, {"x": 52, "y": 76, "w": 48, "h": 24}], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/100.jpg"}, {"id": "101", "username": "whitetrashwarrior", "caption": "@hotamericangirls directed by @jordanhubert334 shot by me", "hashtags": [], "carousel_indicator": "1/5", "post_date": "June 3, 2025", "post_key": "wtw_rooftop_popsicle", "visual_tags": ["rooftop", "NYC", "two girls", "popsicle", "close-up", "red white blue", "patriotic", "licking", "moody sky", "clouds", "editorial", "candid", "dark hair", "blonde"], "set_members": ["102", "103", "104", "105"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/101.jpg"}, {"id": "102", "username": "whitetrashwarrior", "caption": "@hotamericangirls directed by @jordanhubert334 shot by me — slide 2", "hashtags": [], "carousel_indicator": "2/5", "post_date": "June 3, 2025", "post_key": "wtw_rooftop_popsicle", "visual_tags": ["rooftop", "NYC", "two girls", "popsicle", "knees", "red stripes", "star socks", "editorial", "sky", "thighs", "close-up double panel"], "set_members": ["101", "103", "104", "105"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/102.jpg"}, {"id": "103", "username": "whitetrashwarrior", "caption": "@hotamericangirls directed by @jordanhubert334 shot by me — slide 3", "hashtags": [], "carousel_indicator": "3/5", "post_date": "June 3, 2025", "post_key": "wtw_rooftop_popsicle", "visual_tags": ["rooftop", "NYC", "two girls", "DSquared", "red top", "star leggings", "sitting", "double panel", "moody sky", "graffiti"], "set_members": ["101", "102", "104", "105"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/103.jpg"}, {"id": "104", "username": "whitetrashwarrior", "caption": "@hotamericangirls directed by @jordanhubert334 shot by me — slide 4", "hashtags": [], "carousel_indicator": "4/5", "post_date": "June 3, 2025", "post_key": "wtw_rooftop_popsicle", "visual_tags": ["rooftop", "NYC", "two girls", "popsicle", "close-up", "red white blue", "double panel", "sky", "eating", "candid"], "set_members": ["101", "102", "103", "105"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/104.jpg"}, {"id": "105", "username": "whitetrashwarrior", "caption": "@hotamericangirls directed by @jordanhubert334 shot by me — slide 5", "hashtags": [], "carousel_indicator": "5/5", "post_date": "June 3, 2025", "post_key": "wtw_rooftop_popsicle", "visual_tags": ["rooftop", "NYC", "two girls", "popsicle", "sitting", "DSquared", "red top", "star socks", "double panel", "wide shot", "industrial", "moody sky"], "set_members": ["101", "102", "103", "104"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/105.jpg"}, {"id": "106", "username": "whitetrashwarrior", "caption": "@gab3 @opium_00pium Fashion out now", "hashtags": [], "carousel_indicator": "", "post_date": "", "post_key": "wtw_reels_lighter", "visual_tags": ["American flag", "lighter", "three girls", "hats", "New Era", "bucket hat", "maroon hat", "dark", "indoor", "candid", "reel", "fire", "phone", "beauty shot"], "set_members": [], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/106.jpg"}, {"id": "107", "username": "whitetrashwarrior", "caption": "@hotamericangirls in LA directed by @jordanhubert334 shot by me", "hashtags": [], "carousel_indicator": "1/8", "post_date": "", "post_key": "wtw_la_shoot", "visual_tags": ["LA", "street", "two girls", "cigarette", "black tank", "sweatband", "double panel", "smoking", "dark hair", "blonde", "necklace", "candid", "dusk"], "set_members": ["108", "109", "110", "111", "112", "113", "114"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/107.jpg"}, {"id": "108", "username": "whitetrashwarrior", "caption": "@hotamericangirls in LA — slide 2", "hashtags": [], "carousel_indicator": "2/8", "post_date": "", "post_key": "wtw_la_shoot", "visual_tags": ["LA", "street", "two girls", "telephone pole", "YOU NEED JESUS sign", "double panel", "standing in road", "yellow socks", "black tank", "back shot"], "set_members": ["107", "109", "110", "111", "112", "113", "114"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/108.jpg"}, {"id": "109", "username": "whitetrashwarrior", "caption": "@hotamericangirls in LA — slide 3", "hashtags": [], "carousel_indicator": "3/8", "post_date": "", "post_key": "wtw_la_shoot", "visual_tags": ["LA", "road", "two girls", "lying down", "phone", "popsicle", "navy jacket", "sweatband", "double panel", "overhead"], "set_members": ["107", "108", "110", "111", "112", "113", "114"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/109.jpg"}, {"id": "110", "username": "whitetrashwarrior", "caption": "@hotamericangirls in LA — slide 4", "hashtags": [], "carousel_indicator": "4/8", "post_date": "", "post_key": "wtw_la_shoot", "visual_tags": ["LA", "parking lot", "sweatband", "close-up", "wrist tattoo", "double panel", "dark asphalt", "hair over face", "black tank", "detail shot"], "set_members": ["107", "108", "109", "111", "112", "113", "114"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/110.jpg"}, {"id": "111", "username": "whitetrashwarrior", "caption": "@hotamericangirls in LA — slide 5", "hashtags": [], "carousel_indicator": "5/8", "post_date": "", "post_key": "wtw_la_shoot", "visual_tags": ["LA", "Jack in the Box", "curb sitting", "two girls", "popsicle", "sunflare", "double panel", "dusk", "street", "food packaging", "yellow socks", "candid"], "set_members": ["107", "108", "109", "110", "112", "113", "114"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/111.jpg"}, {"id": "112", "username": "whitetrashwarrior", "caption": "@hotamericangirls in LA — slide 6", "hashtags": [], "carousel_indicator": "6/8", "post_date": "", "post_key": "wtw_la_shoot", "visual_tags": ["LA", "street", "two girls", "walking", "palm trees", "black tank", "white tank", "fanny pack", "sweatband", "golden hour", "double panel", "LA block"], "set_members": ["107", "108", "109", "110", "111", "113", "114"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/112.jpg"}, {"id": "113", "username": "whitetrashwarrior", "caption": "@hotamericangirls in LA — slide 7", "hashtags": [], "carousel_indicator": "7/8", "post_date": "", "post_key": "wtw_la_shoot", "visual_tags": ["LA", "sidewalk", "crouching", "sweatband", "blonde", "double panel", "palm trees", "smoking", "white tank", "boots", "fire hydrant", "street"], "set_members": ["107", "108", "109", "110", "111", "112", "114"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/113.jpg"}, {"id": "114", "username": "whitetrashwarrior", "caption": "@hotamericangirls in LA — slide 8", "hashtags": [], "carousel_indicator": "8/8", "post_date": "", "post_key": "wtw_la_shoot", "visual_tags": ["LA", "parking lot", "two girls", "sitting on ground", "popsicle", "blue shorts", "sweatband", "double panel", "dark", "candid", "night"], "set_members": ["107", "108", "109", "110", "111", "112", "113"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/114.jpg"}, {"id": "115", "username": "whitetrashwarrior", "caption": "@hotamericangirls at the OK ranch @wegonebeok directed by the girls", "hashtags": [], "carousel_indicator": "1/9", "post_date": "July 6, 2025", "post_key": "wtw_okranch", "visual_tags": ["OK ranch", "three girls", "grass", "turf", "Jack Daniels", "lying down", "branded tee", "American flag bikini", "night", "party", "editorial", "overhead"], "set_members": ["116", "117", "118"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/115.jpg"}, {"id": "116", "username": "whitetrashwarrior", "caption": "@hotamericangirls at the OK ranch — slide 2", "hashtags": [], "carousel_indicator": "2/9", "post_date": "July 6, 2025", "post_key": "wtw_okranch", "visual_tags": ["OK ranch", "three girls", "grass", "turf", "overhead shot", "lying down", "branded tee", "night", "party", "double panel", "spread out"], "set_members": ["115", "117", "118"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/116.jpg"}, {"id": "117", "username": "whitetrashwarrior", "caption": "@hotamericangirls at the OK ranch — slide 5", "hashtags": [], "carousel_indicator": "5/9", "post_date": "July 6, 2025", "post_key": "wtw_okranch", "visual_tags": ["OK ranch", "three girls", "grass", "turf", "lying down", "double panel", "branded tee", "blonde", "dark hair", "night", "party", "candid"], "set_members": ["115", "116", "118"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/117.jpg"}, {"id": "118", "username": "whitetrashwarrior", "caption": "@hotamericangirls at the OK ranch — slide 6", "hashtags": [], "carousel_indicator": "6/9", "post_date": "July 6, 2025", "post_key": "wtw_okranch", "visual_tags": ["OK ranch", "three girls", "grass", "turf", "kneeling", "branded tee", "night", "party", "double panel", "Jack Daniels", "candid", "editorial"], "set_members": ["115", "116", "117"], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/118.jpg"}, {"id": "119", "username": "whitetrashwarrior", "caption": "Grayson with a deer in the middle of nowhere, Georgia @sleptwithcrumbs — slide 13", "hashtags": [], "carousel_indicator": "13/14", "post_date": "August 8, 2025", "post_key": "wtw_georgia_deer", "visual_tags": ["Georgia", "roadside", "highway", "dusk", "smoking", "white tee", "jeans", "necklace", "bracelet", "editorial", "nature", "outdoor", "sitting"], "set_members": ["120"], "censor_boxes": [{"x": 0, "y": 55, "w": 40, "h": 45}], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/119.jpg"}, {"id": "120", "username": "whitetrashwarrior", "caption": "Grayson with a deer in the middle of nowhere, Georgia @sleptwithcrumbs — slide 14", "hashtags": [], "carousel_indicator": "14/14", "post_date": "August 8, 2025", "post_key": "wtw_georgia_deer", "visual_tags": ["Georgia", "roadside", "highway", "smoking", "cigarette", "white tee", "jeans", "necklace", "bracelet", "editorial", "nature", "outdoor", "sitting", "truck"], "set_members": ["119"], "censor_boxes": [{"x": 0, "y": 55, "w": 35, "h": 45}], "image": "https://raw.githubusercontent.com/christiansolar2000-dot/lookbook/main/images/120.jpg"}];
+let SEED_POSTS = [];
 
 let activeUser = 'all', activeSearch = '', currentId = null, currentBoardId = null;
+let postsReady = false;
+
+// posts.json is now the single source of truth for ALL post metadata (1-478+),
+// replacing the old split where 1-120 lived hardcoded in this file and everything
+// else lived only in this device's localStorage (which meant it was invisible on
+// any other device, and silently lost if storage was ever cleared).
+async function loadAllPosts() {
+  // Instant paint from last-known-good local cache while the network fetch runs
+  try {
+    var cached = localStorage.getItem('lb_posts_cache');
+    if (cached) SEED_POSTS = JSON.parse(cached);
+  } catch(e) { /* ignore corrupt cache */ }
+
+  // Use the GitHub Contents API rather than raw.githubusercontent.com — the
+  // raw CDN has a real backend propagation delay for freshly-written files
+  // (confirmed: still stale 60+ seconds after a successful write in testing),
+  // which would make cross-device sync feel broken/unreliable. The Contents
+  // API is immediately consistent. Token is optional (60 req/hr unauthenticated
+  // is plenty for personal use) but used when available for a higher limit.
+  try {
+    var token = getGhToken();
+    var headers = { 'Accept': 'application/vnd.github.v3+json' };
+    if (token) headers['Authorization'] = 'token ' + token;
+    var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', { headers: headers, cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var meta = await res.json();
+    var jsonStr = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+    var data = JSON.parse(jsonStr);
+    if (Array.isArray(data) && data.length) {
+      SEED_POSTS = data;
+      localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS));
+    }
+  } catch(e) {
+    console.warn('Could not fetch posts.json from GitHub — using local cache (may be stale)', e);
+  }
+  postsReady = true;
+}
 
 function getAllPosts() {
-  const uploads = JSON.parse(localStorage.getItem('lb_uploads') || '[]');
-  return [...SEED_POSTS, ...uploads];
+  return SEED_POSTS;
 }
-function getUploads() { return JSON.parse(localStorage.getItem('lb_uploads') || '[]'); }
+
+// Push the full current post list back to GitHub. This is what makes edits
+// (new uploads, re-tags, notes, deletes) permanent and synced across every
+// device — exactly the same guarantee posts 1-120 always had, now extended
+// to everything. Always verifies the write actually succeeded; never fails
+// silently.
+async function syncPostsToGitHub(_isRetry) {
+  localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS));
+  var token = getGhToken();
+  if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
+  try {
+    var getRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+      cache: 'no-store'
+    });
+    if (!getRes.ok) throw new Error('Could not read current posts.json (HTTP ' + getRes.status + ')');
+    var meta = await getRes.json();
+    var jsonStr = JSON.stringify(SEED_POSTS);
+    var b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+    var putRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'Update posts.json', content: b64, sha: meta.sha })
+    });
+    if (!putRes.ok) {
+      // sha conflict (409) means someone else wrote in between our GET and
+      // PUT — safe to just retry once with a fresh sha, since our in-memory
+      // SEED_POSTS already has the intended change and re-fetching only
+      // updates the sha we're writing against, not the content.
+      if (putRes.status === 409 && !_isRetry) {
+        return syncPostsToGitHub(true);
+      }
+      var errBody = await putRes.json().catch(function(){ return {}; });
+      throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
+    }
+    return { ok: true };
+  } catch(e) {
+    console.error('posts.json sync failed', e);
+    return { ok: false, reason: e.message };
+  }
+}
 function getCrops() { try { return JSON.parse(localStorage.getItem('lb_crops') || '{}'); } catch(e) { return {}; } }
 function saveCrop(id, dataUrl) {
   try {
@@ -576,7 +652,7 @@ function saveCrop(id, dataUrl) {
   }
 }
 function getCrop(id) { return getCrops()[id] || null; }
-function saveUploads(u) { localStorage.setItem('lb_uploads', JSON.stringify(u)); }
+
 function getBoards() { return JSON.parse(localStorage.getItem('lb_boards') || '[]'); }
 function saveBoards(b) { localStorage.setItem('lb_boards', JSON.stringify(b)); }
 
@@ -694,6 +770,11 @@ function renderGrid() {
   var filtered = getFiltered();
   grid.innerHTML = '';
   empty.classList.toggle('show', filtered.length === 0);
+  if (filtered.length === 0 && postsReady && SEED_POSTS.length === 0) {
+    empty.textContent = 'Could not load your photos. Check your connection, or add your GitHub token in Settings (double-tap the logo) and reload.';
+  } else if (filtered.length === 0) {
+    empty.textContent = 'No results';
+  }
   var ordered = (activeUser === 'all' && !activeSearch) ? getWeightedShuffled(filtered) : filtered;
   ordered.forEach(function(p) { grid.appendChild(makeCard(p, function() { openLb(p.id); })); });
 
@@ -795,12 +876,12 @@ function openLb(id) {
   var notesEl = document.getElementById('lbNotes');
   notesEl.value = post.notes || '';
   notesEl.onchange = function() {
-    var uploads = getUploads();
-    var idx = uploads.findIndex(function(p) { return p.id === id; });
-    if (idx >= 0) { uploads[idx].notes = notesEl.value; saveUploads(uploads); }
-    else {
-      var s = SEED_POSTS.find(function(p) { return p.id === id; });
-      if (s) s.notes = notesEl.value;
+    var p = SEED_POSTS.find(function(p) { return p.id === id; });
+    if (p) {
+      p.notes = notesEl.value;
+      syncPostsToGitHub().then(function(r) {
+        if (!r.ok) console.warn('Note not permanently saved:', r.reason);
+      });
     }
   };
 
@@ -1423,9 +1504,11 @@ function cropCancel() {
 }
 
 // Scrape post info from screenshot using Gemini 2.0 Flash
+var lastGeminiError = null;
 async function scrapePostInfo(file, b64) {
   var geminiKey = getGeminiKey();
   if (!geminiKey) return null;
+  lastGeminiError = null;
   var prompt = `You are analysing an Instagram screenshot for a personal fashion and art inspiration archive.
 
 TASK: Extract structured metadata AND generate rich visual tags.
@@ -1449,8 +1532,10 @@ VISUAL TAGS — generate 10-15 tags describing what you SEE in the IMAGE (not th
 Return ONLY a raw JSON object, no markdown, no explanation:
 {"username": "@handle or null", "caption": "caption text or null", "date": "date string or null", "hashtags": ["#tag1","#tag2"], "visual_tags": ["tag1","tag2",...], "is_social_screenshot": true}`;
 
+  // gemini-2.0-flash was fully retired by Google on 2026-06-01 — every call to
+  // it now 404s. gemini-2.5-flash is the current stable replacement.
   try {
-    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + geminiKey, {
+    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1462,6 +1547,11 @@ Return ONLY a raw JSON object, no markdown, no explanation:
       })
     });
     var data = await res.json();
+    if (!res.ok) {
+      lastGeminiError = 'Gemini API error (HTTP ' + res.status + '): ' + (data.error && data.error.message ? data.error.message : 'unknown error');
+      console.error(lastGeminiError);
+      return null;
+    }
     var txt = (data.candidates?.[0]?.content?.parts?.[0]?.text) || '';
     // Strip markdown code fences if present
     txt = txt.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/,'').trim();
@@ -1472,7 +1562,11 @@ Return ONLY a raw JSON object, no markdown, no explanation:
       if (parsed.username) parsed.username = parsed.username.replace(/^@/, '');
       return parsed;
     }
-  } catch(e) { console.warn('Gemini scrape error', e); }
+    lastGeminiError = 'Gemini returned no parseable JSON (response may have been blocked or empty)';
+  } catch(e) {
+    lastGeminiError = 'Gemini request failed: ' + e.message;
+    console.warn('Gemini scrape error', e);
+  }
   return null;
 }
 
@@ -1526,14 +1620,13 @@ async function saveUpload() {
   document.getElementById('saveBtn').disabled = true;
   var extraTags = (document.getElementById('upTags').value || '').split(',').map(function(t) { return t.trim(); }).filter(Boolean);
   var manualUser = (document.getElementById('upUser').value || '').trim().replace(/^@/, '');
-  var uploads = getUploads();
 
-  // Determine the true next ID from the actual repo state, not just this
-  // device's local upload count — the local count is meaningless across
+  // Determine the true next ID from the actual repo state and current posts
+  // list — never trust a purely local counter, since it's meaningless across
   // devices/sessions and silently collides with real existing IDs (this is
-  // the likely root cause behind IDs 061-078 ending up with mismatched
-  // images: a collided ID kept its old image while getting new metadata).
-  var nextId = 121 + uploads.length; // fallback if we can't reach GitHub
+  // the confirmed root cause behind the 061-078 corruption).
+  var localMax = SEED_POSTS.reduce(function(m, p) { return Math.max(m, parseInt(p.id, 10) || 0); }, 120);
+  var nextId = localMax + 1;
   if (token) {
     try {
       status.textContent = 'Checking existing IDs…';
@@ -1556,6 +1649,7 @@ async function saveUpload() {
   status.textContent = 'Saving…';
 
   var errors = 0;
+  var newPosts = [];
   for (var i = 0; i < pendingFiles.length; i++) {
     var f = pendingFiles[i];
     var info = scrapedData[i] || {};
@@ -1580,9 +1674,6 @@ async function saveUpload() {
           headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
         });
         if (existsRes.ok) {
-          // Path already has content — do NOT push, this would either be
-          // silently rejected (protecting the old file) or, worse, overwrite
-          // it if we ever start passing sha here. Skip and flag as an error.
           throw new Error('ID ' + id + ' already exists on GitHub — refusing to overwrite');
         }
         var ghRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/images/' + id + '.' + ext, {
@@ -1593,12 +1684,25 @@ async function saveUpload() {
         if (!ghRes.ok) { errors++; continue; }
       } catch(e) { console.error('upload push failed for', id, e); errors++; continue; }
     }
-    uploads.push(post);
+    newPosts.push(post);
   }
-  saveUploads(uploads);
+
+  SEED_POSTS = SEED_POSTS.concat(newPosts);
   resetSessionOrder();
   buildPills(); renderGrid();
-  status.textContent = errors ? (pendingFiles.length - errors) + ' saved, ' + errors + ' failed (see console) — not added to avoid corrupting existing posts.' : pendingFiles.length + ' saved!';
+
+  if (newPosts.length) {
+    status.textContent = 'Saving metadata permanently…';
+    var syncResult = await syncPostsToGitHub();
+    if (!syncResult.ok) {
+      status.textContent = (pendingFiles.length - errors) + ' saved, but metadata failed to sync permanently: ' + syncResult.reason;
+      alert('Photo(s) uploaded, but the captions/tags could not be saved permanently to GitHub:\n\n' + syncResult.reason + '\n\nThey are only stored on this device for now — try again, or check your GitHub token in Settings.');
+      setTimeout(closeUpload, 3200);
+      pendingFiles = []; scrapedData = [];
+      return;
+    }
+  }
+  status.textContent = errors ? (pendingFiles.length - errors) + ' saved, ' + errors + ' failed (see console) — not added to avoid corrupting existing posts.' : pendingFiles.length + ' saved and synced!';
   pendingFiles = []; scrapedData = [];
   setTimeout(closeUpload, 2200);
 }
@@ -1670,18 +1774,37 @@ function handleFiles(files) {
         document.getElementById('scrapedResults').style.display = 'none';
         return;
       }
-      // Step 2: scrape ALL in parallel
-      document.getElementById('scrapeStatus').textContent = 'Reading post info…';
+      // Step 2: scrape sequentially with pacing — firing all requests at once
+      // risks the Gemini API's rate limit on anything but tiny batches, and
+      // errors were previously swallowed silently (every photo would just end
+      // up "unknown" with no explanation). Now sequential, paced, and any
+      // failure is visible in the status line.
       document.getElementById('scrapedResults').style.display = '';
-      return Promise.all(pendingFiles.map(function(f, i) {
-        return scrapePostInfo(f, b64s[i]).then(function(info) {
+      var scrapeErrors = 0;
+      var idx = 0;
+      function scrapeNext() {
+        if (idx >= pendingFiles.length) {
+          return Promise.resolve();
+        }
+        var i = idx++;
+        document.getElementById('scrapeStatus').textContent = 'Reading post info… (' + i + '/' + pendingFiles.length + (scrapeErrors ? ', ' + scrapeErrors + ' failed' : '') + ')';
+        return scrapePostInfo(pendingFiles[i], b64s[i]).then(function(info) {
+          if (!info) { scrapeErrors++; console.warn('Tagging failed for photo ' + i + ':', lastGeminiError); }
           scrapedData[i] = info;
-          return info;
-        });
-      }));
+          return new Promise(function(res) { setTimeout(res, 350); }); // pace calls
+        }).then(scrapeNext);
+      }
+      return scrapeNext().then(function() {
+        if (scrapeErrors) {
+          document.getElementById('scrapeStatus').textContent = scrapeErrors + ' of ' + pendingFiles.length + ' failed to auto-tag: ' + (lastGeminiError || 'unknown error') + ' — you can still edit fields manually below.';
+        }
+        return scrapedData.slice(0, pendingFiles.length);
+      });
     }).then(function(infos) {
       if (!infos) return;
-      document.getElementById('scrapeStatus').textContent = pendingFiles.length + ' photo' + (pendingFiles.length > 1 ? 's' : '') + ' ready';
+      if (!document.getElementById('scrapeStatus').textContent.includes('failed')) {
+        document.getElementById('scrapeStatus').textContent = pendingFiles.length + ' photo' + (pendingFiles.length > 1 ? 's' : '') + ' ready';
+      }
       var cards = document.getElementById('scrapedCards');
       cards.innerHTML = '';
       pendingFiles.forEach(function(f, i) {
@@ -1736,27 +1859,21 @@ function closeConfirm() { document.getElementById('confirmModal').classList.remo
 // DELETE from lightbox (collection delete)
 function deleteFromLb() {
   if (!currentId) return;
-  var isSeed = SEED_POSTS.some(function(p) { return p.id === currentId; });
-  if (isSeed) {
-    document.getElementById('confirmMsg').textContent = 'This is a built-in post and cannot be permanently deleted.';
-    document.getElementById('confirmSub').textContent = 'It will remain in your collection.';
-    document.getElementById('confirmOkBtn').textContent = 'OK';
-    document.getElementById('confirmOkBtn').onclick = closeConfirm;
-    document.getElementById('confirmModal').classList.add('open');
-    return;
-  }
   var id = currentId;
   document.getElementById('confirmMsg').textContent = 'Delete this photo?';
-  document.getElementById('confirmSub').textContent = 'It will be removed from all boards and your collection. This cannot be undone.';
+  document.getElementById('confirmSub').textContent = 'It will be removed from all boards and your collection, permanently, on every device. This cannot be undone.';
   document.getElementById('confirmOkBtn').textContent = 'Delete';
   document.getElementById('confirmOkBtn').onclick = function() {
     closeConfirm();
     closeLb();
-    saveUploads(getUploads().filter(function(p) { return p.id !== id; }));
+    SEED_POSTS = SEED_POSTS.filter(function(p) { return p.id !== id; });
     var boards = getBoards();
     boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== id; }); });
     saveBoards(boards);
     renderGrid();
+    syncPostsToGitHub().then(function(r) {
+      if (!r.ok) alert('This photo was removed here, but the deletion did not sync permanently:\n\n' + r.reason + '\n\nIt may still appear on other devices. Try again, or check your GitHub token in Settings.');
+    });
   };
   document.getElementById('confirmModal').classList.add('open');
 }
@@ -1767,7 +1884,6 @@ function recropFromLb() {
   var post = getAllPosts().find(function(p) { return p.id === currentId; });
   if (!post) return;
   var postId = currentId;
-  var isSeed = SEED_POSTS.some(function(p) { return p.id === postId; });
   var imgUrl = post.image;
   var src = getCrop(postId) || imgUrl;
 
@@ -1796,9 +1912,9 @@ function recropFromLb() {
         item.top = Math.round(bounds.top / scale);
         item.bottom = Math.round(bounds.bottom / scale);
       } catch(e) { /* use full bounds */ }
-      showRecropModal(item, postId, isSeed, imgUrl);
+      showRecropModal(item, postId, imgUrl);
     };
-    probe.onerror = function() { showRecropModal(item, postId, isSeed, imgUrl); };
+    probe.onerror = function() { showRecropModal(item, postId, imgUrl); };
     probe.src = srcUrl;
   }
 
@@ -1823,7 +1939,7 @@ function recropFromLb() {
 }
 
 // Show the crop modal for a recrop operation (separate from upload crop flow)
-function showRecropModal(item, postId, isSeed, imgUrl) {
+function showRecropModal(item, postId, imgUrl) {
   cropQueue = [item];
   cropResolveQueue = [function(croppedFile) {
     if (!croppedFile) {
@@ -1846,15 +1962,9 @@ function showRecropModal(item, postId, isSeed, imgUrl) {
           if (cardImg) cardImg.src = dataUrl;
         }
       });
-      // 4. Persist for local uploads
-      if (!isSeed) {
-        var uploads = getUploads();
-        var idx = uploads.findIndex(function(p) { return p.id === postId; });
-        if (idx >= 0) { uploads[idx].image = dataUrl; saveUploads(uploads); }
-      }
       renderGrid();
 
-      // 5. Push to GitHub — this is what makes the crop PERMANENT (the actual
+      // 4. Push to GitHub — this is what makes the crop PERMANENT (the actual
       // hosted image file, not just this device's local cache). Every step is
       // checked; failure is surfaced loudly instead of swallowed.
       var token = getGhToken();
@@ -1929,53 +2039,34 @@ function retagFromLb() {
   if (geminiKey) {
     document.getElementById('retagStatus').textContent = 'Analysing with Gemini…';
     document.getElementById('retagSaveBtn').disabled = true;
-    // Load image → canvas → b64 → Gemini
-    var loader = new Image();
-    loader.crossOrigin = 'anonymous';
-    loader.onload = function() {
-      var canvas = document.createElement('canvas');
-      canvas.width = loader.naturalWidth; canvas.height = loader.naturalHeight;
-      try {
-        canvas.getContext('2d').drawImage(loader, 0, 0);
-        canvas.toBlob(function(blob) {
-          var fr = new FileReader();
-          fr.onload = function() {
-            var b64 = fr.result.split(',')[1];
-            var mimeType = blob.type || 'image/jpeg';
-            scrapePostInfo({ type: mimeType }, b64).then(function(info) {
-              if (info) {
-                if (info.username && info.username !== 'unknown' && info.username !== 'null') {
-                  document.getElementById('retagUser').value = info.username.replace(/^@/,'');
-                }
-                if (info.caption && info.caption !== 'null') {
-                  document.getElementById('retagCaption').value = info.caption;
-                }
-                if (info.date && info.date !== 'null') {
-                  document.getElementById('retagDate').value = info.date;
-                }
-                if (info.visual_tags && info.visual_tags.length) {
-                  document.getElementById('retagTags').value = info.visual_tags.join(', ');
-                }
-                document.getElementById('retagStatus').textContent = 'Analysis complete — edit and save.';
-              } else {
-                document.getElementById('retagStatus').textContent = 'Could not read info — fill in manually.';
-              }
-              document.getElementById('retagSaveBtn').disabled = false;
-            });
-          };
-          fr.readAsDataURL(blob);
-        }, 'image/jpeg', 0.92);
-      } catch(e) {
-        document.getElementById('retagStatus').textContent = 'Image access blocked — fill in manually.';
-        document.getElementById('retagSaveBtn').disabled = false;
+    var srcForAnalysis = getCrop(post.id) || post.image || '';
+    fetchImageAsDataUrl(srcForAnalysis).then(function(dataUrl) {
+      var b64 = dataUrl.split(',')[1];
+      var mime = dataUrl.match(/^data:([^;]+);/);
+      return scrapePostInfo({ type: mime ? mime[1] : 'image/jpeg' }, b64);
+    }).then(function(info) {
+      if (info) {
+        if (info.username && info.username !== 'unknown' && info.username !== 'null') {
+          document.getElementById('retagUser').value = info.username.replace(/^@/,'');
+        }
+        if (info.caption && info.caption !== 'null') {
+          document.getElementById('retagCaption').value = info.caption;
+        }
+        if (info.date && info.date !== 'null') {
+          document.getElementById('retagDate').value = info.date;
+        }
+        if (info.visual_tags && info.visual_tags.length) {
+          document.getElementById('retagTags').value = info.visual_tags.join(', ');
+        }
+        document.getElementById('retagStatus').textContent = 'Analysis complete — edit and save.';
+      } else {
+        document.getElementById('retagStatus').textContent = (lastGeminiError || 'Could not read info') + ' — fill in manually.';
       }
-    };
-    loader.onerror = function() {
-      document.getElementById('retagStatus').textContent = 'Could not load image — fill in manually.';
       document.getElementById('retagSaveBtn').disabled = false;
-    };
-    var src = getCrop(post.id) || post.image || '';
-    loader.src = src + (src.startsWith('data:') ? '' : (src.includes('?') ? '&' : '?') + '_cb=' + Date.now());
+    }).catch(function(e) {
+      document.getElementById('retagStatus').textContent = 'Could not load image (' + e.message + ') — fill in manually.';
+      document.getElementById('retagSaveBtn').disabled = false;
+    });
   }
 }
 
@@ -1992,24 +2083,12 @@ function saveRetag() {
   var newTags = document.getElementById('retagTags').value.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
   var id = retagPostId;
 
-  // Update in uploads or seed post in memory
-  var uploads = getUploads();
-  var idx = uploads.findIndex(function(p) { return p.id === id; });
-  if (idx >= 0) {
-    uploads[idx].username = newUser;
-    uploads[idx].caption = newCaption;
-    uploads[idx].post_date = newDate;
-    uploads[idx].visual_tags = newTags;
-    saveUploads(uploads);
-  } else {
-    // Seed post — update in-memory SEED_POSTS entry
-    var seed = SEED_POSTS.find(function(p) { return p.id === id; });
-    if (seed) {
-      seed.username = newUser;
-      seed.caption = newCaption;
-      seed.post_date = newDate;
-      seed.visual_tags = newTags;
-    }
+  var p = SEED_POSTS.find(function(p) { return p.id === id; });
+  if (p) {
+    p.username = newUser;
+    p.caption = newCaption;
+    p.post_date = newDate;
+    p.visual_tags = newTags;
   }
 
   // Update open lightbox display
@@ -2027,10 +2106,18 @@ function saveRetag() {
     });
   }
 
-  document.getElementById('retagSaveStatus').textContent = 'Saved!';
   buildPills();
   renderGrid();
-  setTimeout(closeRetag, 900);
+  document.getElementById('retagSaveStatus').textContent = 'Saving permanently…';
+  syncPostsToGitHub().then(function(r) {
+    if (r.ok) {
+      document.getElementById('retagSaveStatus').textContent = 'Saved!';
+      setTimeout(closeRetag, 900);
+    } else {
+      document.getElementById('retagSaveStatus').textContent = 'Saved locally only — sync failed';
+      alert('This change is only saved on this device — it did not sync permanently:\n\n' + r.reason + '\n\nTry again, or check your GitHub token in Settings.');
+    }
+  });
 }
 
 // ── BULK RETAG: find all unknown/untagged posts and retag them ──
@@ -2041,58 +2128,63 @@ function bulkRetag() {
     return p.username === 'unknown' || !p.username || (p.visual_tags || []).length === 0;
   });
   if (!posts.length) { alert('No untagged photos found.'); return; }
-  if (!confirm('Re-tag ' + posts.length + ' untagged photo(s) using Gemini? This may take a minute.')) return;
+  if (!confirm('Re-tag ' + posts.length + ' untagged photo(s) using Gemini? This may take a while — you can leave this tab open in the background.')) return;
 
   var i = 0;
   var done = 0, failed = 0;
+  var SYNC_EVERY = 10; // periodic checkpoint so long runs don't lose progress if interrupted
+  var statusEl = document.getElementById('settingsStatus');
+
+  function updateStatus() {
+    if (statusEl) statusEl.textContent = 'Re-tagging ' + (i) + '/' + posts.length + ' (' + done + ' updated, ' + failed + ' failed)…';
+  }
 
   function processNext() {
     if (i >= posts.length) {
       buildPills(); renderGrid();
-      alert('Done! ' + done + ' updated' + (failed ? ', ' + failed + ' failed.' : '.'));
+      syncPostsToGitHub().then(function(r) {
+        var msg = 'Done! ' + done + ' updated' + (failed ? ', ' + failed + ' failed.' : '.');
+        if (!r.ok) msg += '\n\nFinal save did not sync permanently: ' + r.reason;
+        alert(msg);
+        if (statusEl) statusEl.textContent = '';
+      });
       return;
     }
     var post = posts[i++];
+    updateStatus();
+    // Use the same CORS-safe path as recrop: fetch via GitHub Contents API (or
+    // fetch->blob as fallback) instead of loading a cross-origin <img> directly,
+    // which taints the canvas and silently breaks this exact feature.
     var src = getCrop(post.id) || post.image || '';
-    var loader = new Image();
-    loader.crossOrigin = 'anonymous';
-    loader.onload = function() {
-      var canvas = document.createElement('canvas');
-      canvas.width = loader.naturalWidth; canvas.height = loader.naturalHeight;
-      try {
-        canvas.getContext('2d').drawImage(loader, 0, 0);
-        canvas.toBlob(function(blob) {
-          var fr = new FileReader();
-          fr.onload = function() {
-            scrapePostInfo({ type: 'image/jpeg' }, fr.result.split(',')[1]).then(function(info) {
-              if (info) {
-                var uploads = getUploads();
-                var idx = uploads.findIndex(function(p) { return p.id === post.id; });
-                if (idx >= 0) {
-                  if (info.username && info.username !== 'null') uploads[idx].username = info.username.replace(/^@/,'');
-                  if (info.caption && info.caption !== 'null') uploads[idx].caption = info.caption;
-                  if (info.date && info.date !== 'null') uploads[idx].post_date = info.date;
-                  if (info.visual_tags && info.visual_tags.length) uploads[idx].visual_tags = info.visual_tags;
-                  saveUploads(uploads);
-                } else {
-                  var seed = SEED_POSTS.find(function(p) { return p.id === post.id; });
-                  if (seed) {
-                    if (info.username && info.username !== 'null') seed.username = info.username.replace(/^@/,'');
-                    if (info.caption && info.caption !== 'null') seed.caption = info.caption;
-                    if (info.visual_tags && info.visual_tags.length) seed.visual_tags = info.visual_tags;
-                  }
-                }
-                done++;
-              } else { failed++; }
-              setTimeout(processNext, 800); // pace API calls
-            });
-          };
-          fr.readAsDataURL(blob);
-        }, 'image/jpeg', 0.85);
-      } catch(e) { failed++; setTimeout(processNext, 400); }
-    };
-    loader.onerror = function() { failed++; setTimeout(processNext, 400); };
-    loader.src = src + (src.startsWith('data:') ? '' : (src.includes('?') ? '&' : '?') + '_cb=' + Date.now());
+    fetchImageAsDataUrl(src).then(function(dataUrl) {
+      var b64 = dataUrl.split(',')[1];
+      var mime = dataUrl.match(/^data:([^;]+);/);
+      return scrapePostInfo({ type: mime ? mime[1] : 'image/jpeg' }, b64);
+    }).then(function(info) {
+      if (info) {
+        var p = SEED_POSTS.find(function(p) { return p.id === post.id; });
+        if (p) {
+          if (info.username && info.username !== 'null') p.username = info.username.replace(/^@/,'');
+          if (info.caption && info.caption !== 'null') p.caption = info.caption;
+          if (info.date && info.date !== 'null') p.post_date = info.date;
+          if (info.visual_tags && info.visual_tags.length) p.visual_tags = info.visual_tags;
+        }
+        done++;
+      } else { failed++; }
+    }).catch(function(e) {
+      console.warn('bulkRetag failed for', post.id, e);
+      failed++;
+    }).then(function() {
+      if (done > 0 && done % SYNC_EVERY === 0) {
+        renderGrid();
+        syncPostsToGitHub().then(function(r) {
+          if (!r.ok) console.warn('Checkpoint sync failed:', r.reason);
+          setTimeout(processNext, 800); // pace API calls
+        });
+      } else {
+        setTimeout(processNext, 800); // pace API calls
+      }
+    });
   }
   processNext();
 }
@@ -2156,25 +2248,21 @@ function sortSave() {
 function sortDelete() {
   var post = sortQueue[sortIndex];
   if (!post) return;
-  var isSeed = SEED_POSTS.some(function(p) { return p.id === post.id; });
-  if (isSeed) {
-    openConfirm('This is a built-in post and cannot be deleted.', '', null);
-    document.getElementById('confirmOkBtn').textContent = 'OK';
-    document.getElementById('confirmOkBtn').onclick = closeConfirm;
-    return;
-  }
   var postId = post.id;
   document.getElementById('confirmMsg').textContent = 'Delete this photo?';
-  document.getElementById('confirmSub').textContent = 'It will be removed from all boards and your collection permanently.';
+  document.getElementById('confirmSub').textContent = 'It will be removed from all boards and your collection, permanently, on every device.';
   document.getElementById('confirmOkBtn').textContent = 'Delete';
   document.getElementById('confirmOkBtn').onclick = function() {
     closeConfirm();
-    saveUploads(getUploads().filter(function(p) { return p.id !== postId; }));
+    SEED_POSTS = SEED_POSTS.filter(function(p) { return p.id !== postId; });
     var boards = getBoards();
     boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== postId; }); });
     saveBoards(boards);
     sortQueue.splice(sortIndex, 1);
     showSortCard();
+    syncPostsToGitHub().then(function(r) {
+      if (!r.ok) alert('This photo was removed here, but the deletion did not sync permanently:\n\n' + r.reason);
+    });
   };
   document.getElementById('confirmModal').classList.add('open');
 }
@@ -2220,6 +2308,18 @@ function initSortSwipe() {
 // Lock screen
 (function() {
   var unlocked = localStorage.getItem('lb_unlocked') === '1';
+  function boot() {
+    // Instant paint from whatever was cached last session...
+    try {
+      var cached = localStorage.getItem('lb_posts_cache');
+      if (cached) SEED_POSTS = JSON.parse(cached);
+    } catch(e) {}
+    buildPills(); renderGrid();
+    // ...then fetch the canonical, up-to-date list from GitHub and re-render.
+    // This is what makes every device converge on the same data, the same
+    // way posts 1-120 always did — now true for every post.
+    loadAllPosts().then(function() { buildPills(); renderGrid(); });
+  }
   if (!unlocked) {
     var overlay = document.createElement('div');
     overlay.id = 'lockOverlay';
@@ -2232,8 +2332,7 @@ function initSortSwipe() {
       if (document.getElementById('pwInput').value === 'lookbook') {
         localStorage.setItem('lb_unlocked', '1');
         overlay.remove();
-        buildPills();
-        renderGrid();
+        boot();
       } else {
         document.getElementById('pwError').textContent = 'incorrect';
         document.getElementById('pwInput').value = '';
@@ -2242,8 +2341,7 @@ function initSortSwipe() {
     document.getElementById('pwInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') tryUnlock(); });
     overlay.addEventListener('click', function(e) { if (e.target === overlay) tryUnlock(); });
   } else {
-    buildPills();
-    renderGrid();
+    boot();
   }
 })();
 
