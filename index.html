@@ -372,6 +372,7 @@ nav {
     <div style="display:flex;gap:10px;align-items:center;padding:0 24px;margin-top:12px;flex-wrap:wrap;">
     <button class="lb-board-btn" onclick="openBoardPicker()" style="margin:0;">+ Add to board</button>
     <button class="lb-board-btn" onclick="recropFromLb()" style="margin:0;">Recrop</button>
+    <button class="lb-board-btn" id="lbRetagBtn" onclick="retagFromLb()" style="margin:0;">Re-tag</button>
     <button class="lb-delete-btn" onclick="deleteFromLb()" style="margin-left:auto;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;background:none;border:1px solid #fdd;color:#c00;padding:6px 14px;cursor:pointer;font-family:var(--f);transition:all 0.15s;" onmouseover="this.style.background='#fdd'" onmouseout="this.style.background='none'">Delete photo</button>
   </div>
     <div class="lb-section" id="lbSetSection" style="display:none">
@@ -418,6 +419,38 @@ nav {
   <div class="crop-counter" id="cropCounter"></div>
 </div>
 
+<!-- RETAG MODAL -->
+<div class="modal-bg" id="retagModal">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-title">Re-tag Photo</div>
+    <button class="modal-close" onclick="closeRetag()">×</button>
+    <div id="retagStatus" class="modal-status" style="text-align:left;margin-bottom:12px;min-height:18px;"></div>
+    <div id="retagPreview" style="display:flex;gap:12px;margin-bottom:16px;align-items:flex-start;">
+      <img id="retagThumb" src="" style="width:72px;height:88px;object-fit:cover;flex-shrink:0;background:#f2f2f2;">
+      <div style="flex:1;min-width:0;">
+        <div class="field" style="margin-bottom:8px;">
+          <label>@username</label>
+          <input id="retagUser" type="text" placeholder="detected username">
+        </div>
+        <div class="field" style="margin-bottom:8px;">
+          <label>Caption</label>
+          <input id="retagCaption" type="text" placeholder="detected caption">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input id="retagDate" type="text" placeholder="detected date">
+        </div>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:12px;">
+      <label>Visual Tags <span style="text-transform:none;letter-spacing:0;font-style:italic">(comma separated — edit freely)</span></label>
+      <input id="retagTags" type="text" placeholder="tags will appear here after analysis">
+    </div>
+    <button class="modal-save" id="retagSaveBtn" disabled onclick="saveRetag()">Save</button>
+    <div class="modal-status" id="retagSaveStatus"></div>
+  </div>
+</div>
+
 <!-- UPLOAD MODAL -->
 <div class="modal-bg" id="uploadModal">
   <div class="modal">
@@ -460,6 +493,7 @@ nav {
     <div class="field"><label>GitHub Token</label><input id="ghTokenInput" type="password" placeholder="ghp_…"></div>
     <div class="field"><label>Gemini API Key (optional)</label><input id="geminiInput" type="password" placeholder="AIza…"></div>
     <button class="modal-save" onclick="saveSettings()">Save</button>
+    <button class="modal-save" onclick="closeSettings(); bulkRetag();" style="margin-top:8px;background:transparent;color:var(--ink);border:1px solid var(--faint);">Re-tag unknown photos</button>
     <div class="modal-status" id="settingsStatus"></div>
   </div>
 </div>
@@ -481,7 +515,19 @@ function getAllPosts() {
 }
 function getUploads() { return JSON.parse(localStorage.getItem('lb_uploads') || '[]'); }
 function getCrops() { try { return JSON.parse(localStorage.getItem('lb_crops') || '{}'); } catch(e) { return {}; } }
-function saveCrop(id, dataUrl) { var c = getCrops(); c[id] = dataUrl; localStorage.setItem('lb_crops', JSON.stringify(c)); }
+function saveCrop(id, dataUrl) {
+  try {
+    var c = getCrops();
+    c[id] = dataUrl;
+    localStorage.setItem('lb_crops', JSON.stringify(c));
+  } catch(e) {
+    // localStorage full — try clearing old crops first
+    try {
+      var c2 = {}; c2[id] = dataUrl;
+      localStorage.setItem('lb_crops', JSON.stringify(c2));
+    } catch(e2) { console.warn('saveCrop: localStorage full', e2); }
+  }
+}
 function getCrop(id) { return getCrops()[id] || null; }
 function saveUploads(u) { localStorage.setItem('lb_uploads', JSON.stringify(u)); }
 function getBoards() { return JSON.parse(localStorage.getItem('lb_boards') || '[]'); }
@@ -1557,125 +1603,301 @@ function recropFromLb() {
   if (!currentId) return;
   var post = getAllPosts().find(function(p) { return p.id === currentId; });
   if (!post) return;
-  var imgUrl = post.image;
-  var isSeed = SEED_POSTS.some(function(p) { return p.id === currentId; });
   var postId = currentId;
+  var isSeed = SEED_POSTS.some(function(p) { return p.id === postId; });
+  var imgUrl = post.image;
 
-  // Load via <img> element (avoids CORS fetch restriction on raw.githubusercontent.com)
+  function runCropUI(file, naturalW, naturalH) {
+    analyseScreenshot(file).then(function(item) {
+      item.skip = false; // always show handles
+      cropQueue = [item];
+      cropResolveQueue = [function(croppedFile) {
+        var reader = new FileReader();
+        reader.onload = function() {
+          var dataUrl = reader.result;
+          // 1. Update lightbox immediately
+          document.getElementById('lbImg').src = dataUrl;
+          // 2. Persist to lb_crops (survives lightbox close)
+          saveCrop(postId, dataUrl);
+          // 3. Update any visible grid cards
+          document.querySelectorAll('.card').forEach(function(card) {
+            if (card._postId === postId) {
+              var img = card.querySelector('img');
+              if (img) img.src = dataUrl;
+            }
+          });
+          // 4. Persist for local uploads
+          if (!isSeed) {
+            var uploads = getUploads();
+            var idx = uploads.findIndex(function(p) { return p.id === postId; });
+            if (idx >= 0) { uploads[idx].image = dataUrl; saveUploads(uploads); }
+          }
+          // 5. Push to GitHub in background
+          var token = getGhToken();
+          if (token) {
+            var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
+            var ghPath = 'images/' + postId + '.' + ext;
+            var b64 = dataUrl.split(',')[1];
+            fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+              headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+            }).then(function(r) { return r.json(); })
+              .then(function(meta) {
+                return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
+                  method: 'PUT',
+                  headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
+                });
+              }).catch(function(e) { console.warn('recrop push failed', e); });
+          }
+          renderGrid();
+        };
+        reader.readAsDataURL(croppedFile);
+      }];
+      cropQueueIndex = 0;
+      showCropItem();
+    });
+  }
+
+  // Strategy: load fresh copy with crossOrigin=anonymous so canvas isn't tainted.
+  // GitHub raw.githubusercontent.com supports CORS when crossOrigin is set BEFORE src.
   var loader = new Image();
   loader.crossOrigin = 'anonymous';
   loader.onload = function() {
     var w = loader.naturalWidth, h = loader.naturalHeight;
-    // Draw to canvas so we can read pixels + later export cropped blob
-    var fullCanvas = document.createElement('canvas');
-    fullCanvas.width = w; fullCanvas.height = h;
-    fullCanvas.getContext('2d').drawImage(loader, 0, 0);
-
-    // Convert canvas to blob → File for analyseScreenshot
-    fullCanvas.toBlob(function(blob) {
-      var file = new File([blob], postId + '.jpg', { type: 'image/jpeg' });
-
-      analyseScreenshot(file).then(function(item) {
-        item.skip = false; // always show crop UI
-
-        cropQueue = [item];
-        cropResolveQueue = [function(croppedFile) {
-          // Get dataURL of the cropped result for immediate display
-          var reader = new FileReader();
-          reader.onload = function() {
-            var dataUrl = reader.result;
-            var b64 = dataUrl.split(',')[1];
-            var token = getGhToken();
-            var ext = imgUrl.endsWith('.png') ? 'png' : 'jpg';
-            var ghPath = 'images/' + postId + '.' + ext;
-
-            // Show cropped image immediately in lightbox
-            document.getElementById('lbImg').src = dataUrl;
-
-            // Persist so it survives lightbox close/reopen
-            saveCrop(postId, dataUrl);
-
-            // Update matching card in grid immediately
-            document.querySelectorAll('.card').forEach(function(card) {
-              if (card._postId === postId) {
-                var img = card.querySelector('img');
-                if (img) img.src = dataUrl;
-              }
-            });
-
-            // Push to GitHub in background (seed posts + uploads with token)
-            if (token) {
-              fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-                headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-              }).then(function(r) { return r.json(); })
-                .then(function(meta) {
-                  return fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + ghPath, {
-                    method: 'PUT',
-                    headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: 'recrop ' + postId, content: b64, sha: meta.sha })
-                  });
-                }).then(function(r) {
-                  if (r.ok) console.log('recrop pushed to GitHub:', postId);
-                }).catch(function(e) { console.warn('recrop GitHub push failed', e); });
-            }
-
-            // For local uploads: persist dataURL so it survives refresh
-            if (!isSeed) {
-              var uploads = getUploads();
-              var idx = uploads.findIndex(function(p) { return p.id === postId; });
-              if (idx >= 0) {
-                uploads[idx].image = dataUrl;
-                saveUploads(uploads);
-              }
-            }
-
-            // Re-render grid so card picks up new image
-            renderGrid();
-          };
-          reader.readAsDataURL(croppedFile);
-        }];
-        cropQueueIndex = 0;
-        showCropItem();
-      });
-    }, 'image/jpeg', 0.93);
-  };
-  loader.onerror = function() {
-    // crossOrigin failed — try without (image will still display but canvas will be tainted)
-    // Fall back: just open crop UI using the currently-displayed lbImg
-    var lbImg = document.getElementById('lbImg');
-    var w = lbImg.naturalWidth, h = lbImg.naturalHeight;
-    var fallbackCanvas = document.createElement('canvas');
-    fallbackCanvas.width = w; fallbackCanvas.height = h;
+    var canvas = document.createElement('canvas');
+    canvas.width = w; canvas.height = h;
     try {
-      fallbackCanvas.getContext('2d').drawImage(lbImg, 0, 0);
-      fallbackCanvas.toBlob(function(blob) {
-        var file = new File([blob], postId + '.jpg', { type: 'image/jpeg' });
-        analyseScreenshot(file).then(function(item) {
-          item.skip = false;
-          cropQueue = [item];
-          cropResolveQueue = [function(croppedFile) {
-            var r2 = new FileReader();
-            r2.onload = function() {
-              document.getElementById('lbImg').src = r2.result;
-              saveCrop(postId, r2.result); // persist for all post types
-              if (!isSeed) {
-                var uploads = getUploads();
-                var idx = uploads.findIndex(function(p) { return p.id === postId; });
-                if (idx >= 0) { uploads[idx].image = r2.result; saveUploads(uploads); }
-              }
-              renderGrid();
-            };
-            r2.readAsDataURL(croppedFile);
-          }];
-          cropQueueIndex = 0;
-          showCropItem();
-        });
-      }, 'image/jpeg', 0.93);
+      canvas.getContext('2d').drawImage(loader, 0, 0);
+      canvas.toBlob(function(blob) {
+        runCropUI(new File([blob], postId + '.jpg', { type: 'image/jpeg' }), w, h);
+      }, 'image/jpeg', 0.95);
     } catch(e) {
-      alert('Cannot crop: browser blocked cross-origin canvas access. Try refreshing and cropping immediately after the image loads.');
+      // Canvas tainted despite crossOrigin — use stored crop or lbImg directly
+      useLbImgFallback();
     }
   };
-  loader.src = imgUrl;
+  loader.onerror = function() { useLbImgFallback(); };
+
+  function useLbImgFallback() {
+    // If we have a stored dataURL crop, use that (it's already same-origin)
+    var stored = getCrop(postId);
+    var srcToUse = stored || null;
+    var lbImg = document.getElementById('lbImg');
+
+    var fb = new Image();
+    fb.onload = function() {
+      var w = fb.naturalWidth, h = fb.naturalHeight;
+      var canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      try {
+        canvas.getContext('2d').drawImage(fb, 0, 0);
+        canvas.toBlob(function(blob) {
+          runCropUI(new File([blob], postId + '.jpg', { type: 'image/jpeg' }), w, h);
+        }, 'image/jpeg', 0.95);
+      } catch(e2) {
+        alert('Cannot access image pixels due to browser security restrictions. Try opening the image in a new tab first, or re-upload it.');
+      }
+    };
+    // Use dataURL if available (no CORS issue), else try lbImg src
+    fb.src = srcToUse || lbImg.src;
+  }
+
+  // Add cache-bust to force fresh load with CORS headers
+  loader.src = imgUrl + (imgUrl.includes('?') ? '&' : '?') + '_cb=' + Date.now();
+}
+
+// ── RETAG ────────────────────────────────────────────────────
+var retagPostId = null;
+
+function retagFromLb() {
+  if (!currentId) return;
+  retagPostId = currentId;
+  var post = getAllPosts().find(function(p) { return p.id === currentId; });
+  if (!post) return;
+
+  var modal = document.getElementById('retagModal');
+  var thumb = document.getElementById('retagThumb');
+  thumb.src = getCrop(post.id) || post.image || '';
+  document.getElementById('retagUser').value = post.username === 'unknown' ? '' : (post.username || '');
+  document.getElementById('retagCaption').value = post.caption || '';
+  document.getElementById('retagDate').value = post.post_date || '';
+  document.getElementById('retagTags').value = (post.visual_tags || []).join(', ');
+  document.getElementById('retagStatus').textContent = '';
+  document.getElementById('retagSaveBtn').disabled = false;
+  document.getElementById('retagSaveStatus').textContent = '';
+  modal.classList.add('open');
+
+  // Auto-run Gemini if key is set
+  var geminiKey = getGeminiKey();
+  if (geminiKey) {
+    document.getElementById('retagStatus').textContent = 'Analysing with Gemini…';
+    document.getElementById('retagSaveBtn').disabled = true;
+    // Load image → canvas → b64 → Gemini
+    var loader = new Image();
+    loader.crossOrigin = 'anonymous';
+    loader.onload = function() {
+      var canvas = document.createElement('canvas');
+      canvas.width = loader.naturalWidth; canvas.height = loader.naturalHeight;
+      try {
+        canvas.getContext('2d').drawImage(loader, 0, 0);
+        canvas.toBlob(function(blob) {
+          var fr = new FileReader();
+          fr.onload = function() {
+            var b64 = fr.result.split(',')[1];
+            var mimeType = blob.type || 'image/jpeg';
+            scrapePostInfo({ type: mimeType }, b64).then(function(info) {
+              if (info) {
+                if (info.username && info.username !== 'unknown' && info.username !== 'null') {
+                  document.getElementById('retagUser').value = info.username.replace(/^@/,'');
+                }
+                if (info.caption && info.caption !== 'null') {
+                  document.getElementById('retagCaption').value = info.caption;
+                }
+                if (info.date && info.date !== 'null') {
+                  document.getElementById('retagDate').value = info.date;
+                }
+                if (info.visual_tags && info.visual_tags.length) {
+                  document.getElementById('retagTags').value = info.visual_tags.join(', ');
+                }
+                document.getElementById('retagStatus').textContent = 'Analysis complete — edit and save.';
+              } else {
+                document.getElementById('retagStatus').textContent = 'Could not read info — fill in manually.';
+              }
+              document.getElementById('retagSaveBtn').disabled = false;
+            });
+          };
+          fr.readAsDataURL(blob);
+        }, 'image/jpeg', 0.92);
+      } catch(e) {
+        document.getElementById('retagStatus').textContent = 'Image access blocked — fill in manually.';
+        document.getElementById('retagSaveBtn').disabled = false;
+      }
+    };
+    loader.onerror = function() {
+      document.getElementById('retagStatus').textContent = 'Could not load image — fill in manually.';
+      document.getElementById('retagSaveBtn').disabled = false;
+    };
+    var src = getCrop(post.id) || post.image || '';
+    loader.src = src + (src.startsWith('data:') ? '' : (src.includes('?') ? '&' : '?') + '_cb=' + Date.now());
+  }
+}
+
+function closeRetag() {
+  document.getElementById('retagModal').classList.remove('open');
+  retagPostId = null;
+}
+
+function saveRetag() {
+  if (!retagPostId) return;
+  var newUser = document.getElementById('retagUser').value.trim().replace(/^@/,'') || 'unknown';
+  var newCaption = document.getElementById('retagCaption').value.trim();
+  var newDate = document.getElementById('retagDate').value.trim();
+  var newTags = document.getElementById('retagTags').value.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+  var id = retagPostId;
+
+  // Update in uploads or seed post in memory
+  var uploads = getUploads();
+  var idx = uploads.findIndex(function(p) { return p.id === id; });
+  if (idx >= 0) {
+    uploads[idx].username = newUser;
+    uploads[idx].caption = newCaption;
+    uploads[idx].post_date = newDate;
+    uploads[idx].visual_tags = newTags;
+    saveUploads(uploads);
+  } else {
+    // Seed post — update in-memory SEED_POSTS entry
+    var seed = SEED_POSTS.find(function(p) { return p.id === id; });
+    if (seed) {
+      seed.username = newUser;
+      seed.caption = newCaption;
+      seed.post_date = newDate;
+      seed.visual_tags = newTags;
+    }
+  }
+
+  // Update open lightbox display
+  if (document.getElementById('lb').classList.contains('open') && currentId === id) {
+    document.getElementById('lbUser').textContent = '@' + newUser;
+    document.getElementById('lbCaption').textContent = newCaption;
+    document.getElementById('lbDate').textContent = newDate.toUpperCase();
+    var tagsEl = document.getElementById('lbTags');
+    tagsEl.innerHTML = '';
+    newTags.forEach(function(tag) {
+      var b = document.createElement('button');
+      b.className = 'lb-tag'; b.textContent = tag;
+      b.onclick = function() { closeLb(); document.getElementById('searchInput').value = tag; activeSearch = tag.toLowerCase(); setUser('all'); renderGrid(); };
+      tagsEl.appendChild(b);
+    });
+  }
+
+  document.getElementById('retagSaveStatus').textContent = 'Saved!';
+  buildPills();
+  renderGrid();
+  setTimeout(closeRetag, 900);
+}
+
+// ── BULK RETAG: find all unknown/untagged posts and retag them ──
+function bulkRetag() {
+  var geminiKey = getGeminiKey();
+  if (!geminiKey) { alert('Add a Gemini API key in Settings first.'); return; }
+  var posts = getAllPosts().filter(function(p) {
+    return p.username === 'unknown' || !p.username || (p.visual_tags || []).length === 0;
+  });
+  if (!posts.length) { alert('No untagged photos found.'); return; }
+  if (!confirm('Re-tag ' + posts.length + ' untagged photo(s) using Gemini? This may take a minute.')) return;
+
+  var i = 0;
+  var done = 0, failed = 0;
+
+  function processNext() {
+    if (i >= posts.length) {
+      buildPills(); renderGrid();
+      alert('Done! ' + done + ' updated' + (failed ? ', ' + failed + ' failed.' : '.'));
+      return;
+    }
+    var post = posts[i++];
+    var src = getCrop(post.id) || post.image || '';
+    var loader = new Image();
+    loader.crossOrigin = 'anonymous';
+    loader.onload = function() {
+      var canvas = document.createElement('canvas');
+      canvas.width = loader.naturalWidth; canvas.height = loader.naturalHeight;
+      try {
+        canvas.getContext('2d').drawImage(loader, 0, 0);
+        canvas.toBlob(function(blob) {
+          var fr = new FileReader();
+          fr.onload = function() {
+            scrapePostInfo({ type: 'image/jpeg' }, fr.result.split(',')[1]).then(function(info) {
+              if (info) {
+                var uploads = getUploads();
+                var idx = uploads.findIndex(function(p) { return p.id === post.id; });
+                if (idx >= 0) {
+                  if (info.username && info.username !== 'null') uploads[idx].username = info.username.replace(/^@/,'');
+                  if (info.caption && info.caption !== 'null') uploads[idx].caption = info.caption;
+                  if (info.date && info.date !== 'null') uploads[idx].post_date = info.date;
+                  if (info.visual_tags && info.visual_tags.length) uploads[idx].visual_tags = info.visual_tags;
+                  saveUploads(uploads);
+                } else {
+                  var seed = SEED_POSTS.find(function(p) { return p.id === post.id; });
+                  if (seed) {
+                    if (info.username && info.username !== 'null') seed.username = info.username.replace(/^@/,'');
+                    if (info.caption && info.caption !== 'null') seed.caption = info.caption;
+                    if (info.visual_tags && info.visual_tags.length) seed.visual_tags = info.visual_tags;
+                  }
+                }
+                done++;
+              } else { failed++; }
+              setTimeout(processNext, 800); // pace API calls
+            });
+          };
+          fr.readAsDataURL(blob);
+        }, 'image/jpeg', 0.85);
+      } catch(e) { failed++; setTimeout(processNext, 400); }
+    };
+    loader.onerror = function() { failed++; setTimeout(processNext, 400); };
+    loader.src = src + (src.startsWith('data:') ? '' : (src.includes('?') ? '&' : '?') + '_cb=' + Date.now());
+  }
+  processNext();
 }
 
 // SORT MODE
