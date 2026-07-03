@@ -598,14 +598,43 @@ async function loadAllPosts() {
     var token = getGhToken();
     var headers = { 'Accept': 'application/vnd.github.v3+json' };
     if (token) headers['Authorization'] = 'token ' + token;
-    var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', { headers: headers, cache: 'no-store' });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    var meta = await res.json();
-    var jsonStr = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+    // posts.json has grown past the size where the Contents API will inline it
+    // (large files come back with content:"" ), so fetch in two steps: get the
+    // blob SHA via the Contents API, then pull the full body from the Git blob
+    // API, which always returns complete base64 regardless of file size. Both
+    // endpoints are immediately consistent (unlike the raw CDN).
+    var metaRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', { headers: headers, cache: 'no-store' });
+    if (!metaRes.ok) throw new Error('contents HTTP ' + metaRes.status);
+    var meta = await metaRes.json();
+    var jsonStr;
+    if (meta.content && meta.content.trim()) {
+      // Small enough that Contents inlined it — use directly.
+      jsonStr = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+    } else {
+      // Empty inline content — fetch the blob by SHA.
+      var blobRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/git/blobs/' + meta.sha, { headers: headers, cache: 'no-store' });
+      if (!blobRes.ok) throw new Error('blob HTTP ' + blobRes.status);
+      var blob = await blobRes.json();
+      jsonStr = decodeURIComponent(escape(atob(blob.content.replace(/\n/g, ''))));
+    }
     var data = JSON.parse(jsonStr);
     if (Array.isArray(data) && data.length) {
       SEED_POSTS = data;
-      localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS));
+      // Cache write is best-effort: posts.json can exceed the ~5MB localStorage
+      // quota, and a QuotaExceededError here must NOT discard the freshly fetched
+      // data (that was the old "changes revert" bug — a full cache would throw and
+      // leave the app on stale data). Fall back to trimming, then skip silently.
+      try {
+        localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS));
+      } catch(quotaErr) {
+        try {
+          localStorage.removeItem('lb_posts_cache');
+          localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS));
+        } catch(quotaErr2) {
+          // Still too big — run this session on fresh in-memory data, no cache.
+          console.warn('posts cache skipped (localStorage quota); using live data in memory', quotaErr2);
+        }
+      }
     }
   } catch(e) {
     console.warn('Could not fetch posts.json from GitHub — using local cache (may be stale)', e);
@@ -623,7 +652,10 @@ function getAllPosts() {
 // to everything. Always verifies the write actually succeeded; never fails
 // silently.
 async function syncPostsToGitHub(_isRetry) {
-  localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS));
+  // Best-effort local cache — must never throw, or a full localStorage quota
+  // would abort the sync before the GitHub PUT below (the "changes revert" bug).
+  try { localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS)); }
+  catch(e) { try { localStorage.removeItem('lb_posts_cache'); } catch(e2){} }
   var token = getGhToken();
   if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
   try {
@@ -695,7 +727,16 @@ async function loadAllBoards() {
     var remoteData = null;
     if (res.ok) {
       var meta = await res.json();
-      var jsonStr = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+      var jsonStr;
+      if (meta.content && meta.content.trim()) {
+        jsonStr = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+      } else {
+        // Empty inline content (file grew past the Contents API inline limit) —
+        // fetch full body via the blob API by SHA.
+        var bRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/git/blobs/' + meta.sha, { headers: headers, cache: 'no-store' });
+        var bBlob = await bRes.json();
+        jsonStr = decodeURIComponent(escape(atob(bBlob.content.replace(/\n/g, ''))));
+      }
       remoteData = JSON.parse(jsonStr);
     }
     // Treat "doesn't exist" and "exists but empty" the same way for migration
