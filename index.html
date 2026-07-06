@@ -651,7 +651,10 @@ function getAllPosts() {
 // device — exactly the same guarantee posts 1-120 always had, now extended
 // to everything. Always verifies the write actually succeeded; never fails
 // silently.
-async function syncPostsToGitHub(_isRetry) {
+function lbDelay(ms) { return new Promise(function(res) { setTimeout(res, ms); }); }
+
+async function syncPostsToGitHub(_attempt) {
+  _attempt = _attempt || 0;
   // Best-effort local cache — must never throw, or a full localStorage quota
   // would abort the sync before the GitHub PUT below (the "changes revert" bug).
   try { localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS)); }
@@ -677,8 +680,9 @@ async function syncPostsToGitHub(_isRetry) {
       // PUT — safe to just retry once with a fresh sha, since our in-memory
       // SEED_POSTS already has the intended change and re-fetching only
       // updates the sha we're writing against, not the content.
-      if (putRes.status === 409 && !_isRetry) {
-        return syncPostsToGitHub(true);
+      if (putRes.status === 409 && _attempt < 3) {
+        await lbDelay(400 * (_attempt + 1));
+        return syncPostsToGitHub(_attempt + 1);
       }
       var errBody = await putRes.json().catch(function(){ return {}; });
       throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
@@ -769,7 +773,8 @@ async function loadAllBoards() {
   boardsReady = true;
 }
 
-async function syncBoardsToGitHub(_isRetry) {
+async function syncBoardsToGitHub(_attempt) {
+  _attempt = _attempt || 0;
   localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
   var token = getGhToken();
   if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
@@ -795,8 +800,9 @@ async function syncBoardsToGitHub(_isRetry) {
       body: JSON.stringify(payload)
     });
     if (!putRes.ok) {
-      if (putRes.status === 409 && !_isRetry) {
-        return syncBoardsToGitHub(true);
+      if (putRes.status === 409 && _attempt < 3) {
+        await lbDelay(400 * (_attempt + 1));
+        return syncBoardsToGitHub(_attempt + 1);
       }
       var errBody = await putRes.json().catch(function(){ return {}; });
       throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
@@ -2208,7 +2214,8 @@ function removeFromBoardLb() {
 // photo no longer leaves an orphaned file behind (the 553-vs-514 gap). Failure
 // here is non-fatal — an orphan file is invisible in the app and was the old
 // status quo anyway — so it's logged, never alerted. Retries once on 409.
-function deleteImageFileFromGitHub(post, _isRetry) {
+function deleteImageFileFromGitHub(post, _attempt) {
+  _attempt = _attempt || 0;
   var token = getGhToken();
   if (!token || !post || !post.image) return Promise.resolve();
   var m = post.image.match(/\/(images\/[^\/?#]+)/);
@@ -2230,7 +2237,9 @@ function deleteImageFileFromGitHub(post, _isRetry) {
     });
   }).then(function(delRes) {
     if (delRes && !delRes.ok) {
-      if (delRes.status === 409 && !_isRetry) return deleteImageFileFromGitHub(post, true);
+      if (delRes.status === 409 && _attempt < 3) {
+        return lbDelay(400 * (_attempt + 1)).then(function() { return deleteImageFileFromGitHub(post, _attempt + 1); });
+      }
       throw new Error('delete failed (HTTP ' + delRes.status + ')');
     }
   }).catch(function(e) {
@@ -2259,12 +2268,20 @@ function deleteFromLb() {
     SEED_POSTS = SEED_POSTS.filter(function(p) { return p.id !== id; });
     var boards = getBoards();
     boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== id; }); });
-    saveBoards(boards);
+    BOARDS = boards;
     deleteCrop(id);
     renderGrid();
-    deleteImageFileFromGitHub(post);
+    // Serialized writes — one at a time, each confirmed before the next.
+    // Order matters: posts.json first (the app's source of truth). If a later
+    // step fails, worst case is an invisible orphan image, never a broken thumbnail.
     syncPostsToGitHub().then(function(r) {
-      if (!r.ok) alert('This photo was removed here, but the deletion did not sync permanently:\n\n' + r.reason + '\n\nIt may still appear on other devices. Try again, or check your GitHub token in Settings.');
+      if (!r.ok) throw new Error('posts.json did not save: ' + r.reason);
+      return syncBoardsToGitHub();
+    }).then(function(r) {
+      if (!r.ok) throw new Error('boards.json did not save: ' + r.reason);
+      return deleteImageFileFromGitHub(post);
+    }).catch(function(e) {
+      alert('DELETION DID NOT FULLY SYNC TO GITHUB.\n\n' + e.message + '\n\nThe photo is gone from this screen only — it WILL come back on reload and on other devices. Try deleting it again, or check your GitHub token in Settings.');
     });
   };
   document.getElementById('confirmModal').classList.add('open');
