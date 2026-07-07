@@ -2629,8 +2629,21 @@ var sortIndex = 0;
 
 function initSort() {
   var all = getAllPosts();
-  // Weighted random order same as home feed
-  sortQueue = getWeightedShuffled(all);
+  var log = getLog();
+  // Bucket 1: never interacted (no log entry at all)
+  var unsorted = all.filter(function(p) { return !log[p.id]; });
+  // Bucket 2: opened but never boarded
+  var light = all.filter(function(p) { return log[p.id] && !log[p.id].board; });
+  // Bucket 3: already boarded
+  var heavy = all.filter(function(p) { return log[p.id] && log[p.id].board; });
+  function shuffle(arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr;
+  }
+  sortQueue = shuffle(unsorted).concat(shuffle(light)).concat(shuffle(heavy));
   sortIndex = 0;
   showSortCard();
   initSortSwipe();
@@ -2728,7 +2741,14 @@ function initSortSwipe() {
     var t = e.touches ? e.touches[0] : e;
     dx = t.clientX - startX;
     var dy = t.clientY - startY;
-    if (Math.abs(dy) > Math.abs(dx) + 10) { dragging = false; card.style.transform = 'none'; return; }
+    // Swipe down gesture — track vertically, suppress horizontal handling
+    if (dy > 20 && dy > Math.abs(dx)) {
+      e.preventDefault();
+      card.style.transform = 'translateY(' + dy + 'px) scale(' + Math.max(0.92, 1 - dy / 600) + ')';
+      card.style.opacity = String(Math.max(0.4, 1 - dy / 200));
+      return;
+    }
+    if (Math.abs(dy) > Math.abs(dx) + 10) { dragging = false; card.style.transform = 'none'; card.style.opacity = '1'; return; }
     e.preventDefault();
     var rot = dx * 0.06;
     card.style.transform = 'translateX(' + dx + 'px) rotate(' + rot + 'deg)';
@@ -2738,7 +2758,13 @@ function initSortSwipe() {
     if (!dragging) return;
     dragging = false;
     card.classList.remove('dragging');
-    if (dx > 80) { sortSave(); }
+    var t_dy = 0;
+    // Recalculate dy from last known positions isn't available here — use card transform
+    var transform = card.style.transform;
+    var dyMatch = transform.match(/translateY\(([0-9.]+)px\)/);
+    var dy = dyMatch ? parseFloat(dyMatch[1]) : 0;
+    if (dy > 80) { card.style.transition = 'transform 0.28s ease, opacity 0.28s'; card.style.transform = 'translateY(160px)'; card.style.opacity = '0'; setTimeout(function() { sortDelete(); }, 200); }
+    else if (dx > 80) { sortSave(); }
     else if (dx < -80) { sortSkip(); }
     else { card.style.transition = 'transform 0.2s, opacity 0.2s'; card.style.transform = 'none'; card.style.opacity = '1'; }
   }
