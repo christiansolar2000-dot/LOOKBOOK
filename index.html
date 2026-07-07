@@ -180,6 +180,213 @@ nav {
 .board-delete-btn { margin-left: auto; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; background: none; border: none; color: var(--muted); cursor: pointer; font-family: var(--f); transition: color 0.15s; }
 .board-delete-btn:hover { color: #c00; }
 
+/* BOARD MODE TOGGLE */
+.board-mode-tabs { display: flex; gap: 0; margin-left: auto; border: 1px solid var(--faint); }
+.board-mode-tab {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 5px 14px; background: none; border: none; cursor: pointer;
+  font-family: var(--f); color: var(--muted); transition: all 0.15s;
+}
+.board-mode-tab.active { background: var(--ink); color: #fff; }
+.board-mode-tab:hover:not(.active) { color: var(--ink); }
+
+/* BOARD HEADER ACTIONS */
+.board-header-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.board-action-btn {
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  background: none; border: 1px solid var(--faint); color: var(--muted);
+  cursor: pointer; padding: 5px 12px; font-family: var(--f); transition: all 0.15s;
+}
+.board-action-btn:hover { border-color: var(--muted); color: var(--ink); }
+
+/* CANVAS PAGE */
+#canvasContainer {
+  display: none;
+  flex-direction: column;
+  height: calc(100vh - 56px - env(safe-area-inset-top) - 57px);
+  overflow: hidden;
+  position: relative;
+  background: #f7f6f3;
+}
+#canvasViewport {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  cursor: grab;
+}
+#canvasViewport.panning { cursor: grabbing; }
+#canvasWorld {
+  position: absolute;
+  width: 10000px;
+  height: 10000px;
+  transform-origin: 0 0;
+}
+.canvas-item {
+  position: absolute;
+  cursor: pointer;
+  user-select: none;
+  touch-action: none;
+}
+.canvas-item.selected .canvas-item-inner {
+  outline: 2px solid #111;
+  outline-offset: 1px;
+}
+.canvas-item.locked .canvas-item-inner {
+  outline: 2px solid #e08;
+  outline-offset: 1px;
+}
+.canvas-item-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+.canvas-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+.canvas-text-content {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font-family: var(--f);
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.4;
+  overflow: hidden;
+}
+.canvas-item-toolbar {
+  display: none;
+  position: absolute;
+  top: -36px;
+  left: 0;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid var(--faint);
+  padding: 4px 6px;
+  white-space: nowrap;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.canvas-item.selected .canvas-item-toolbar { display: flex; }
+.canvas-item-toolbar button {
+  font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  font-family: var(--f); padding: 2px 6px; transition: color 0.12s;
+}
+.canvas-item-toolbar button:hover { color: var(--ink); }
+.canvas-item-toolbar button.active { color: var(--ink); font-weight: 700; }
+
+/* Resize handles — 4 corners */
+.canvas-resize-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: 1.5px solid #111;
+  z-index: 20;
+  touch-action: none;
+}
+.canvas-resize-handle.tl { top: -6px; left: -6px; cursor: nwse-resize; }
+.canvas-resize-handle.tr { top: -6px; right: -6px; cursor: nesw-resize; }
+.canvas-resize-handle.bl { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.canvas-resize-handle.br { bottom: -6px; right: -6px; cursor: nwse-resize; }
+.canvas-item:not(.selected) .canvas-resize-handle { display: none; }
+
+/* Canvas toolbar (top) */
+#canvasToolbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 50;
+  background: rgba(255,255,255,0.95);
+  border: 1px solid var(--faint);
+  padding: 6px 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+#canvasToolbar button {
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  background: none; border: none; cursor: pointer; color: var(--muted);
+  font-family: var(--f); padding: 4px 10px; transition: all 0.15s;
+}
+#canvasToolbar button:hover { color: var(--ink); }
+#canvasToolbar .sep { width: 1px; background: var(--faint); margin: 2px 4px; }
+
+/* Canvas zoom indicator */
+#canvasZoomIndicator {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  background: rgba(255,255,255,0.9);
+  padding: 4px 10px;
+  border: 1px solid var(--faint);
+  z-index: 50;
+}
+
+/* Image tray */
+#canvasTray {
+  height: 110px;
+  border-top: 1px solid var(--faint);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  gap: 8px;
+  padding: 8px 16px;
+  scroll-behavior: smooth;
+  flex-shrink: 0;
+}
+#canvasTray::-webkit-scrollbar { height: 4px; }
+#canvasTray::-webkit-scrollbar-track { background: transparent; }
+#canvasTray::-webkit-scrollbar-thumb { background: var(--faint); }
+.tray-img {
+  height: 88px;
+  min-width: 70px;
+  max-width: 120px;
+  object-fit: cover;
+  cursor: grab;
+  flex-shrink: 0;
+  opacity: 0.85;
+  transition: opacity 0.15s, transform 0.15s;
+  touch-action: none;
+  user-select: none;
+  display: block;
+}
+.tray-img:hover { opacity: 1; transform: translateY(-2px); }
+.tray-empty { font-size: 11px; color: var(--muted); font-style: italic; padding: 0 8px; }
+
+/* Text box styling on canvas */
+.canvas-text-bg {
+  background: rgba(255,255,255,0.92);
+  border: 1px solid var(--faint);
+}
+
+/* View-only banner */
+#viewOnlyBanner {
+  display: none;
+  background: #111;
+  color: #fff;
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 7px;
+}
+
 /* MODALS */
 .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 600; align-items: center; justify-content: center; }
 .modal-bg.open { display: flex; }
@@ -334,11 +541,42 @@ nav {
     <div class="board-detail-header">
       <button class="back-btn" onclick="closeBoard()">← Back</button>
       <span class="board-detail-name" id="boardDetailName"></span>
-      <button class="board-delete-btn" onclick="deleteCurrentBoard()">Delete board</button>
+      <div class="board-header-actions">
+        <div class="board-mode-tabs">
+          <button class="board-mode-tab active" id="modeGalleryBtn" onclick="setBoardMode('gallery')">Gallery</button>
+          <button class="board-mode-tab" id="modeCanvasBtn" onclick="setBoardMode('canvas')">Canvas</button>
+        </div>
+        <button class="board-action-btn" id="boardShareBtn" onclick="copyBoardLink()" title="Copy share link">Share</button>
+        <button class="board-action-btn" id="boardExportBtn" onclick="exportBoard()">Export</button>
+        <button class="board-delete-btn" onclick="deleteCurrentBoard()">Delete board</button>
+      </div>
     </div>
-    <div class="grid" id="boardGrid"></div>
+    <!-- GALLERY MODE -->
+    <div id="boardGallery">
+      <div class="grid" id="boardGrid"></div>
+    </div>
+    <!-- CANVAS MODE -->
+    <div id="canvasContainer">
+      <div id="canvasToolbar">
+        <button onclick="addTextBox()">+ Text</button>
+        <div class="sep"></div>
+        <button onclick="canvasZoom(0.1)">＋</button>
+        <button onclick="canvasZoom(-0.1)">－</button>
+        <button onclick="canvasResetView()">Reset</button>
+        <div class="sep"></div>
+        <button onclick="clearCanvasSelection()">Deselect</button>
+      </div>
+      <div id="canvasViewport">
+        <div id="canvasWorld"></div>
+      </div>
+      <div id="canvasZoomIndicator">100%</div>
+      <div id="canvasTray"></div>
+    </div>
   </div>
 </div>
+
+<!-- VIEW-ONLY BANNER -->
+<div id="viewOnlyBanner">Viewing shared board — read only</div>
 
 
 <div id="sortPage" style="display:none; position:fixed; inset:0; background:#fff; z-index:350; flex-direction:column; align-items:center; justify-content:center;">
@@ -828,6 +1066,670 @@ function saveBoards(b) {
   });
 }
 
+// ─── CANVAS STATE ────────────────────────────────────────────────────────────
+var CANVAS_DATA = {}; // { boardId: { items: [...] } }
+var currentBoardMode = 'gallery'; // 'gallery' | 'canvas'
+
+// View-only mode: set when ?board=X is in URL and no token is stored.
+// Evaluated after boot so getGhToken() can read localStorage.
+var VIEW_ONLY = false;
+function detectViewOnly() {
+  var params = new URLSearchParams(window.location.search);
+  if (params.has('board')) {
+    VIEW_ONLY = !getGhToken();
+    document.getElementById('viewOnlyBanner').style.display = VIEW_ONLY ? 'block' : 'none';
+  }
+}
+
+async function loadCanvasFromGitHub() {
+  var token = getGhToken();
+  var headers = { 'Accept': 'application/vnd.github.v3+json' };
+  if (token) headers['Authorization'] = 'token ' + token;
+  try {
+    var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/canvas.json', {
+      headers: headers, cache: 'no-store'
+    });
+    if (res.ok) {
+      var meta = await res.json();
+      var bRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/git/blobs/' + meta.sha, {
+        headers: headers, cache: 'no-store'
+      });
+      var blob = await bRes.json();
+      var decoded = JSON.parse(atob(blob.content.replace(/\s/g, '')));
+      CANVAS_DATA = decoded || {};
+      localStorage.setItem('lb_canvas_cache', JSON.stringify(CANVAS_DATA));
+    } else if (res.status === 404) {
+      CANVAS_DATA = {};
+    }
+  } catch(e) {
+    var cached = localStorage.getItem('lb_canvas_cache');
+    if (cached) try { CANVAS_DATA = JSON.parse(cached); } catch(e2) {}
+    console.warn('canvas.json load failed, using cache', e);
+  }
+}
+
+async function syncCanvasToGitHub(_attempt) {
+  _attempt = _attempt || 0;
+  if (VIEW_ONLY) return { ok: false, reason: 'View-only mode' };
+  localStorage.setItem('lb_canvas_cache', JSON.stringify(CANVAS_DATA));
+  var token = getGhToken();
+  if (!token) return { ok: false, reason: 'No GitHub token' };
+  try {
+    var getRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/canvas.json', {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+      cache: 'no-store'
+    });
+    var sha = null;
+    if (getRes.ok) { var meta = await getRes.json(); sha = meta.sha; }
+    else if (getRes.status !== 404) throw new Error('Cannot read canvas.json (HTTP ' + getRes.status + ')');
+    var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(CANVAS_DATA))));
+    var payload = { message: 'Update canvas.json', content: b64 };
+    if (sha) payload.sha = sha;
+    var putRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/canvas.json', {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!putRes.ok) {
+      if (putRes.status === 409 && _attempt < 3) {
+        await new Promise(function(r) { setTimeout(r, 400 * (_attempt + 1)); });
+        return syncCanvasToGitHub(_attempt + 1);
+      }
+      var err = await putRes.json().catch(function(){ return {}; });
+      throw new Error('GitHub rejected canvas.json (HTTP ' + putRes.status + '): ' + (err.message || 'unknown'));
+    }
+    return { ok: true };
+  } catch(e) {
+    console.error('canvas.json sync failed', e);
+    return { ok: false, reason: e.message };
+  }
+}
+
+function getCanvasForBoard(boardId) {
+  if (!CANVAS_DATA[boardId]) CANVAS_DATA[boardId] = { items: [] };
+  return CANVAS_DATA[boardId];
+}
+
+function saveCanvasForBoard(boardId) {
+  return syncCanvasToGitHub().then(function(r) {
+    if (!r.ok) console.warn('Canvas not permanently synced:', r.reason);
+    return r;
+  });
+}
+
+// ─── CANVAS ENGINE ────────────────────────────────────────────────────────────
+var cvState = {
+  boardId: null,
+  scale: 1,
+  panX: 0,
+  panY: 0,
+  selectedId: null,
+  isPanning: false,
+  panStart: null,
+  dragItem: null,   // { id, startX, startY, itemStartX, itemStartY }
+  resizeItem: null, // { id, corner, startX, startY, startW, startH, startItemX, startItemY }
+  trayDrag: null,   // dragging from tray onto canvas
+  saveTimer: null,
+  nextZ: 1
+};
+
+var CV_MIN_SCALE = 0.1, CV_MAX_SCALE = 4, CV_WORLD_SIZE = 10000;
+
+function cvApplyTransform() {
+  document.getElementById('canvasWorld').style.transform =
+    'translate(' + cvState.panX + 'px,' + cvState.panY + 'px) scale(' + cvState.scale + ')';
+  document.getElementById('canvasZoomIndicator').textContent = Math.round(cvState.scale * 100) + '%';
+}
+
+function canvasZoom(delta) {
+  var vp = document.getElementById('canvasViewport');
+  var cx = vp.clientWidth / 2, cy = vp.clientHeight / 2;
+  var newScale = Math.min(CV_MAX_SCALE, Math.max(CV_MIN_SCALE, cvState.scale + delta));
+  var ratio = newScale / cvState.scale;
+  cvState.panX = cx - ratio * (cx - cvState.panX);
+  cvState.panY = cy - ratio * (cy - cvState.panY);
+  cvState.scale = newScale;
+  cvApplyTransform();
+}
+
+function canvasResetView() {
+  cvState.scale = 1; cvState.panX = 0; cvState.panY = 0;
+  cvApplyTransform();
+}
+
+function cvScreenToWorld(sx, sy) {
+  var vp = document.getElementById('canvasViewport');
+  var rect = vp.getBoundingClientRect();
+  return {
+    x: (sx - rect.left - cvState.panX) / cvState.scale,
+    y: (sy - rect.top - cvState.panY) / cvState.scale
+  };
+}
+
+function cvNextId() { return 'ci_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
+
+function cvNextZ() {
+  var items = getCanvasForBoard(cvState.boardId).items;
+  var max = items.reduce(function(m, i) { return Math.max(m, i.z || 1); }, 0);
+  return max + 1;
+}
+
+function renderCanvasItems() {
+  var world = document.getElementById('canvasWorld');
+  var data = getCanvasForBoard(cvState.boardId);
+  // Clear removed items
+  var existing = {};
+  world.querySelectorAll('.canvas-item').forEach(function(el) {
+    existing[el.dataset.itemId] = el;
+  });
+  var currentIds = {};
+  data.items.forEach(function(item) { currentIds[item.id] = true; });
+  Object.keys(existing).forEach(function(id) {
+    if (!currentIds[id]) world.removeChild(existing[id]);
+  });
+  // Add/update items
+  data.items.forEach(function(item) {
+    var el = existing[item.id];
+    if (!el) {
+      el = buildCanvasItemEl(item);
+      world.appendChild(el);
+    }
+    applyCanvasItemPos(el, item);
+  });
+}
+
+function applyCanvasItemPos(el, item) {
+  el.style.left = item.x + 'px';
+  el.style.top = item.y + 'px';
+  el.style.width = item.w + 'px';
+  el.style.height = item.h + 'px';
+  el.style.zIndex = item.z || 1;
+  el.classList.toggle('selected', item.id === cvState.selectedId);
+  el.classList.toggle('locked', !!item.locked);
+}
+
+function buildCanvasItemEl(item) {
+  var el = document.createElement('div');
+  el.className = 'canvas-item';
+  el.dataset.itemId = item.id;
+
+  // Toolbar
+  var tb = document.createElement('div');
+  tb.className = 'canvas-item-toolbar';
+  var lockBtn = document.createElement('button');
+  lockBtn.textContent = 'Lock';
+  lockBtn.onclick = function(e) { e.stopPropagation(); cvToggleLock(item.id); };
+  var dupBtn = document.createElement('button');
+  dupBtn.textContent = 'Duplicate';
+  dupBtn.onclick = function(e) { e.stopPropagation(); cvDuplicate(item.id); };
+  var fwdBtn = document.createElement('button');
+  fwdBtn.textContent = '↑ Fwd';
+  fwdBtn.onclick = function(e) { e.stopPropagation(); cvBringForward(item.id); };
+  var bwdBtn = document.createElement('button');
+  bwdBtn.textContent = '↓ Bwd';
+  bwdBtn.onclick = function(e) { e.stopPropagation(); cvSendBackward(item.id); };
+  var delBtn = document.createElement('button');
+  delBtn.textContent = 'Remove';
+  delBtn.style.color = '#c00';
+  delBtn.onclick = function(e) { e.stopPropagation(); cvRemoveItem(item.id); };
+  tb.appendChild(lockBtn); tb.appendChild(dupBtn); tb.appendChild(fwdBtn);
+  tb.appendChild(bwdBtn); tb.appendChild(delBtn);
+  el.appendChild(tb);
+
+  // Inner
+  var inner = document.createElement('div');
+  inner.className = 'canvas-item-inner';
+  if (item.type === 'image') {
+    inner.className += ' '; // no extra class needed
+    var img = document.createElement('img');
+    var post = getAllPosts().find(function(p) { return p.id === item.postId; });
+    img.src = post ? bustUrl(post) : item.src || '';
+    img.alt = '';
+    img.draggable = false;
+    // Double-click opens lightbox
+    img.addEventListener('dblclick', function(e) {
+      e.stopPropagation();
+      if (post) openLb(post.id);
+    });
+    inner.appendChild(img);
+  } else if (item.type === 'text') {
+    inner.className += ' canvas-text-bg';
+    var ta = document.createElement('textarea');
+    ta.className = 'canvas-text-content';
+    ta.value = item.content || '';
+    ta.style.fontSize = (item.fontSize || 14) + 'px';
+    ta.style.color = item.color || '#111';
+    ta.placeholder = 'Type here…';
+    ta.addEventListener('input', function() {
+      if (VIEW_ONLY) return;
+      var d = getCanvasForBoard(cvState.boardId);
+      var it = d.items.find(function(i) { return i.id === item.id; });
+      if (it) { it.content = ta.value; cvScheduleSave(); }
+    });
+    ta.addEventListener('pointerdown', function(e) { e.stopPropagation(); });
+    // Text style toolbar buttons (added dynamically for this item)
+    var colorBtn = document.createElement('button');
+    colorBtn.textContent = 'Color';
+    colorBtn.onclick = function(e) {
+      e.stopPropagation();
+      var c = prompt('Text color (hex or name):', item.color || '#111');
+      if (c) {
+        ta.style.color = c;
+        var d = getCanvasForBoard(cvState.boardId);
+        var it = d.items.find(function(i) { return i.id === item.id; });
+        if (it) { it.color = c; cvScheduleSave(); }
+      }
+    };
+    var sizeBtn = document.createElement('button');
+    sizeBtn.textContent = 'Size';
+    sizeBtn.onclick = function(e) {
+      e.stopPropagation();
+      var s = prompt('Font size (px):', item.fontSize || 14);
+      if (s && !isNaN(parseInt(s))) {
+        var sz = parseInt(s);
+        ta.style.fontSize = sz + 'px';
+        var d = getCanvasForBoard(cvState.boardId);
+        var it = d.items.find(function(i) { return i.id === item.id; });
+        if (it) { it.fontSize = sz; cvScheduleSave(); }
+      }
+    };
+    tb.insertBefore(colorBtn, tb.firstChild);
+    tb.insertBefore(sizeBtn, tb.firstChild);
+    inner.appendChild(ta);
+  }
+  el.appendChild(inner);
+
+  // Resize handles
+  ['tl','tr','bl','br'].forEach(function(corner) {
+    var h = document.createElement('div');
+    h.className = 'canvas-resize-handle ' + corner;
+    h.dataset.corner = corner;
+    h.addEventListener('pointerdown', function(e) {
+      e.stopPropagation(); e.preventDefault();
+      if (VIEW_ONLY) return;
+      var d = getCanvasForBoard(cvState.boardId);
+      var it = d.items.find(function(i) { return i.id === item.id; });
+      if (!it || it.locked) return;
+      h.setPointerCapture(e.pointerId);
+      cvState.resizeItem = {
+        id: item.id, corner: corner,
+        startX: e.clientX, startY: e.clientY,
+        startW: it.w, startH: it.h,
+        startItemX: it.x, startItemY: it.y
+      };
+    });
+    el.appendChild(h);
+  });
+
+  // Pointer events for drag/pan distinction
+  el.addEventListener('pointerdown', function(e) {
+    if (e.target.classList.contains('canvas-resize-handle')) return;
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') return;
+    e.stopPropagation();
+    if (VIEW_ONLY) return;
+    var d = getCanvasForBoard(cvState.boardId);
+    var it = d.items.find(function(i) { return i.id === item.id; });
+    if (!it || it.locked) {
+      cvSelectItem(item.id);
+      return;
+    }
+    cvSelectItem(item.id);
+    el.setPointerCapture(e.pointerId);
+    cvState.dragItem = {
+      id: item.id,
+      startX: e.clientX, startY: e.clientY,
+      itemStartX: it.x, itemStartY: it.y
+    };
+  });
+
+  return el;
+}
+
+function cvSelectItem(id) {
+  cvState.selectedId = id;
+  var data = getCanvasForBoard(cvState.boardId);
+  // Bring to front on select (bump z)
+  var it = data.items.find(function(i) { return i.id === id; });
+  if (it && !it.locked) { it.z = cvNextZ(); }
+  renderCanvasItems();
+}
+
+function clearCanvasSelection() {
+  cvState.selectedId = null;
+  renderCanvasItems();
+}
+
+function cvToggleLock(id) {
+  if (VIEW_ONLY) return;
+  var d = getCanvasForBoard(cvState.boardId);
+  var it = d.items.find(function(i) { return i.id === id; });
+  if (it) { it.locked = !it.locked; cvScheduleSave(); renderCanvasItems(); }
+}
+
+function cvDuplicate(id) {
+  if (VIEW_ONLY) return;
+  var d = getCanvasForBoard(cvState.boardId);
+  var it = d.items.find(function(i) { return i.id === id; });
+  if (!it) return;
+  var copy = JSON.parse(JSON.stringify(it));
+  copy.id = cvNextId();
+  copy.x += 20; copy.y += 20;
+  copy.z = cvNextZ();
+  d.items.push(copy);
+  cvState.selectedId = copy.id;
+  renderCanvasItems();
+  cvScheduleSave();
+}
+
+function cvBringForward(id) {
+  if (VIEW_ONLY) return;
+  var d = getCanvasForBoard(cvState.boardId);
+  var it = d.items.find(function(i) { return i.id === id; });
+  if (it) { it.z = cvNextZ(); cvScheduleSave(); renderCanvasItems(); }
+}
+
+function cvSendBackward(id) {
+  if (VIEW_ONLY) return;
+  var d = getCanvasForBoard(cvState.boardId);
+  var it = d.items.find(function(i) { return i.id === id; });
+  if (!it) return;
+  var minZ = d.items.reduce(function(m, i) { return Math.min(m, i.z || 1); }, Infinity);
+  it.z = Math.max(1, minZ - 1);
+  cvScheduleSave(); renderCanvasItems();
+}
+
+function cvRemoveItem(id) {
+  if (VIEW_ONLY) return;
+  var d = getCanvasForBoard(cvState.boardId);
+  d.items = d.items.filter(function(i) { return i.id !== id; });
+  if (cvState.selectedId === id) cvState.selectedId = null;
+  renderCanvasItems();
+  cvScheduleSave();
+}
+
+function cvScheduleSave() {
+  if (VIEW_ONLY) return;
+  if (cvState.saveTimer) clearTimeout(cvState.saveTimer);
+  cvState.saveTimer = setTimeout(function() {
+    saveCanvasForBoard(cvState.boardId);
+  }, 1200);
+}
+
+function addTextBox() {
+  if (VIEW_ONLY) return;
+  var vp = document.getElementById('canvasViewport');
+  var cx = vp.clientWidth / 2, cy = vp.clientHeight / 2;
+  var world = cvScreenToWorld(cx, cy);
+  var d = getCanvasForBoard(cvState.boardId);
+  var item = {
+    id: cvNextId(), type: 'text',
+    x: world.x - 100, y: world.y - 40,
+    w: 200, h: 80,
+    z: cvNextZ(),
+    content: '', fontSize: 14, color: '#111', locked: false
+  };
+  d.items.push(item);
+  cvState.selectedId = item.id;
+  renderCanvasItems();
+  cvScheduleSave();
+}
+
+function addImageToCanvas(postId, dropWorldX, dropWorldY) {
+  if (VIEW_ONLY) return;
+  var post = getAllPosts().find(function(p) { return p.id === postId; });
+  if (!post) return;
+  var d = getCanvasForBoard(cvState.boardId);
+  var item = {
+    id: cvNextId(), type: 'image', postId: postId,
+    x: dropWorldX - 120, y: dropWorldY - 90,
+    w: 240, h: 180, z: cvNextZ(), locked: false
+  };
+  d.items.push(item);
+  cvState.selectedId = item.id;
+  renderCanvasItems();
+  cvScheduleSave();
+}
+
+function initCanvasViewport() {
+  var vp = document.getElementById('canvasViewport');
+  var world = document.getElementById('canvasWorld');
+
+  // Scroll-wheel zoom
+  vp.addEventListener('wheel', function(e) {
+    e.preventDefault();
+    var delta = e.deltaY > 0 ? -0.08 : 0.08;
+    var rect = vp.getBoundingClientRect();
+    var mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    var newScale = Math.min(CV_MAX_SCALE, Math.max(CV_MIN_SCALE, cvState.scale + delta));
+    var ratio = newScale / cvState.scale;
+    cvState.panX = mx - ratio * (mx - cvState.panX);
+    cvState.panY = my - ratio * (my - cvState.panY);
+    cvState.scale = newScale;
+    cvApplyTransform();
+  }, { passive: false });
+
+  // Pan (pointer on viewport background)
+  vp.addEventListener('pointerdown', function(e) {
+    if (e.target !== vp && e.target !== world) return;
+    cvState.selectedId = null;
+    renderCanvasItems();
+    vp.setPointerCapture(e.pointerId);
+    cvState.isPanning = true;
+    cvState.panStart = { x: e.clientX - cvState.panX, y: e.clientY - cvState.panY };
+    vp.classList.add('panning');
+  });
+
+  // Global pointer move (handles drag, resize, pan)
+  document.addEventListener('pointermove', function(e) {
+    if (cvState.isPanning && cvState.panStart) {
+      cvState.panX = e.clientX - cvState.panStart.x;
+      cvState.panY = e.clientY - cvState.panStart.y;
+      cvApplyTransform();
+      return;
+    }
+    if (cvState.dragItem) {
+      var d = getCanvasForBoard(cvState.boardId);
+      var it = d.items.find(function(i) { return i.id === cvState.dragItem.id; });
+      if (!it) return;
+      var dx = (e.clientX - cvState.dragItem.startX) / cvState.scale;
+      var dy = (e.clientY - cvState.dragItem.startY) / cvState.scale;
+      it.x = Math.max(0, Math.min(CV_WORLD_SIZE - it.w, cvState.dragItem.itemStartX + dx));
+      it.y = Math.max(0, Math.min(CV_WORLD_SIZE - it.h, cvState.dragItem.itemStartY + dy));
+      var el = document.querySelector('[data-item-id="' + it.id + '"]');
+      if (el) applyCanvasItemPos(el, it);
+      return;
+    }
+    if (cvState.resizeItem) {
+      var ri = cvState.resizeItem;
+      var d = getCanvasForBoard(cvState.boardId);
+      var it = d.items.find(function(i) { return i.id === ri.id; });
+      if (!it) return;
+      var dx = (e.clientX - ri.startX) / cvState.scale;
+      var dy = (e.clientY - ri.startY) / cvState.scale;
+      var minW = 60, minH = 40;
+      if (ri.corner === 'br') {
+        it.w = Math.max(minW, ri.startW + dx);
+        it.h = Math.max(minH, ri.startH + dy);
+      } else if (ri.corner === 'bl') {
+        var newW = Math.max(minW, ri.startW - dx);
+        it.x = ri.startItemX + (ri.startW - newW);
+        it.w = newW;
+        it.h = Math.max(minH, ri.startH + dy);
+      } else if (ri.corner === 'tr') {
+        it.w = Math.max(minW, ri.startW + dx);
+        var newH = Math.max(minH, ri.startH - dy);
+        it.y = ri.startItemY + (ri.startH - newH);
+        it.h = newH;
+      } else if (ri.corner === 'tl') {
+        var newW = Math.max(minW, ri.startW - dx);
+        var newH = Math.max(minH, ri.startH - dy);
+        it.x = ri.startItemX + (ri.startW - newW);
+        it.y = ri.startItemY + (ri.startH - newH);
+        it.w = newW; it.h = newH;
+      }
+      var el = document.querySelector('[data-item-id="' + it.id + '"]');
+      if (el) applyCanvasItemPos(el, it);
+    }
+  });
+
+  document.addEventListener('pointerup', function(e) {
+    if (cvState.isPanning) {
+      cvState.isPanning = false;
+      cvState.panStart = null;
+      vp.classList.remove('panning');
+    }
+    if (cvState.dragItem) {
+      cvScheduleSave();
+      cvState.dragItem = null;
+    }
+    if (cvState.resizeItem) {
+      cvScheduleSave();
+      cvState.resizeItem = null;
+    }
+  });
+}
+
+function buildCanvasTray() {
+  var tray = document.getElementById('canvasTray');
+  tray.innerHTML = '';
+  var board = getBoards().find(function(b) { return b.id === cvState.boardId; });
+  if (!board || !board.postIds || !board.postIds.length) {
+    tray.innerHTML = '<div class="tray-empty">Add images to this board to place them on the canvas.</div>';
+    return;
+  }
+  var posts = getAllPosts().filter(function(p) { return board.postIds.indexOf(p.id) >= 0; });
+  posts.forEach(function(post) {
+    var img = document.createElement('img');
+    img.className = 'tray-img';
+    img.src = bustUrl(post);
+    img.alt = '';
+    img.draggable = false;
+    img.title = 'Drag onto canvas';
+
+    // Pointer drag from tray
+    img.addEventListener('pointerdown', function(e) {
+      e.preventDefault();
+      if (VIEW_ONLY) return;
+      img.setPointerCapture(e.pointerId);
+      cvState.trayDrag = { postId: post.id, el: img, startX: e.clientX, startY: e.clientY, moved: false };
+    });
+    img.addEventListener('pointermove', function(e) {
+      if (!cvState.trayDrag || cvState.trayDrag.postId !== post.id) return;
+      cvState.trayDrag.moved = true;
+    });
+    img.addEventListener('pointerup', function(e) {
+      if (!cvState.trayDrag || cvState.trayDrag.postId !== post.id) return;
+      var drag = cvState.trayDrag;
+      cvState.trayDrag = null;
+      if (!drag.moved) return; // just a click, do nothing
+      var worldPos = cvScreenToWorld(e.clientX, e.clientY);
+      // Clamp to canvas world
+      worldPos.x = Math.max(0, Math.min(CV_WORLD_SIZE - 240, worldPos.x));
+      worldPos.y = Math.max(0, Math.min(CV_WORLD_SIZE - 180, worldPos.y));
+      addImageToCanvas(post.id, worldPos.x + 120, worldPos.y + 90);
+    });
+    tray.appendChild(img);
+  });
+}
+
+function setBoardMode(mode) {
+  currentBoardMode = mode;
+  var gallery = document.getElementById('boardGallery');
+  var canvas = document.getElementById('canvasContainer');
+  var galleryBtn = document.getElementById('modeGalleryBtn');
+  var canvasBtn = document.getElementById('modeCanvasBtn');
+  if (mode === 'gallery') {
+    gallery.style.display = '';
+    canvas.style.display = 'none';
+    galleryBtn.classList.add('active');
+    canvasBtn.classList.remove('active');
+  } else {
+    gallery.style.display = 'none';
+    canvas.style.display = 'flex';
+    galleryBtn.classList.remove('active');
+    canvasBtn.classList.add('active');
+    if (cvState.boardId !== currentBoardId) {
+      cvState.boardId = currentBoardId;
+      cvState.scale = 1; cvState.panX = 0; cvState.panY = 0;
+      cvState.selectedId = null;
+    }
+    renderCanvasItems();
+    buildCanvasTray();
+    cvApplyTransform();
+  }
+}
+
+// Copy shareable board link
+function copyBoardLink() {
+  var board = getBoards().find(function(b) { return b.id === currentBoardId; });
+  if (!board) return;
+  var base = window.location.origin + window.location.pathname;
+  var url = base + '?board=' + encodeURIComponent(board.name) + '&mode=' + currentBoardMode;
+  navigator.clipboard.writeText(url).then(function() {
+    var btn = document.getElementById('boardShareBtn');
+    var orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = orig; }, 1800);
+  }).catch(function() {
+    prompt('Copy this link:', url);
+  });
+}
+
+// Export board as PNG using html2canvas-style capture
+function exportBoard() {
+  if (currentBoardMode === 'gallery') {
+    exportGalleryAsPng();
+  } else {
+    exportCanvasAsPng();
+  }
+}
+
+function exportGalleryAsPng() {
+  var grid = document.getElementById('boardGrid');
+  if (!grid || !grid.children.length) { alert('No images in this board.'); return; }
+  // Use browser print / screenshot fallback
+  alert('To save the gallery view, use your browser\'s screenshot tool or print to PDF. (Full programmatic export requires a paid html2canvas library — we\'ll add this in a future update.)');
+}
+
+function exportCanvasAsPng() {
+  var vp = document.getElementById('canvasViewport');
+  if (!vp) return;
+  // Use html2canvas if available, otherwise instruct user
+  if (typeof html2canvas !== 'undefined') {
+    html2canvas(document.getElementById('canvasWorld'), { scale: 1, useCORS: true }).then(function(canvas) {
+      var a = document.createElement('a');
+      a.download = 'lookbook-canvas.png';
+      a.href = canvas.toDataURL('image/png');
+      a.click();
+    });
+  } else {
+    alert('To export the canvas, use your browser\'s screenshot tool. (Full export coming soon.)');
+  }
+}
+
+// Handle URL params for shared board links
+(function handleSharedLink() {
+  var params = new URLSearchParams(window.location.search);
+  var boardName = params.get('board');
+  var mode = params.get('mode') || 'gallery';
+  if (!boardName) return;
+  // Wait for boards to load then navigate
+  var attempts = 0;
+  var interval = setInterval(function() {
+    attempts++;
+    var boards = getBoards();
+    var board = boards.find(function(b) { return b.name.toLowerCase() === boardName.toLowerCase(); });
+    if (board) {
+      clearInterval(interval);
+      showBoards();
+      openBoard(board.id);
+      if (mode === 'canvas') setBoardMode('canvas');
+    } else if (attempts > 30) {
+      clearInterval(interval);
+    }
+  }, 200);
+})();
+
 // NAV
 function showExplore() {
   document.getElementById('explorePage').style.display = '';
@@ -1198,14 +2100,33 @@ function openBoard(id) {
   document.getElementById('boardsGrid').style.display = 'none';
   document.getElementById('boardDetail').style.display = 'block';
   document.getElementById('boardDetailName').textContent = board.name;
+  // Render gallery
   var posts = getAllPosts().filter(function(p) { return (board.postIds || []).indexOf(p.id) >= 0; });
   var grid = document.getElementById('boardGrid');
   grid.innerHTML = '';
   posts.forEach(function(p) { grid.appendChild(makeCard(p, function() { openLb(p.id); })); });
+  // Reset to gallery mode, hide canvas
+  currentBoardMode = 'gallery';
+  document.getElementById('boardGallery').style.display = '';
+  document.getElementById('canvasContainer').style.display = 'none';
+  document.getElementById('modeGalleryBtn').classList.add('active');
+  document.getElementById('modeCanvasBtn').classList.remove('active');
+  // Hide delete/share/export if view-only
+  if (VIEW_ONLY) {
+    document.getElementById('boardShareBtn').style.display = 'none';
+    document.getElementById('boardExportBtn').style.display = 'none';
+    document.querySelector('.board-delete-btn').style.display = 'none';
+    document.querySelector('.new-board-btn').style.display = 'none';
+  }
 }
 function closeBoard() {
   currentBoardId = null;
+  currentBoardMode = 'gallery';
+  cvState.boardId = null;
+  cvState.selectedId = null;
   document.getElementById('boardDetail').style.display = 'none';
+  document.getElementById('canvasContainer').style.display = 'none';
+  document.getElementById('boardGallery').style.display = '';
   document.getElementById('boardsGrid').style.display = '';
   renderBoards();
 }
@@ -2922,6 +3843,9 @@ async function startCensorAudit() {
     loadAllBoards().then(function() {
       if (document.getElementById('boardsPage').style.display !== 'none') renderBoards();
     });
+    loadCanvasFromGitHub();
+    initCanvasViewport();
+    detectViewOnly();
   }
   if (!unlocked) {
     var overlay = document.createElement('div');
