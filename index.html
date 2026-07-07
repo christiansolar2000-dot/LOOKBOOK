@@ -385,6 +385,7 @@ nav {
     <button class="lb-board-btn" onclick="openBoardPicker()" style="margin:0;">+ Add to board</button>
     <button id="recropBtn" class="lb-board-btn" onclick="recropFromLb()" style="margin:0;">Recrop</button>
     <button class="lb-board-btn" id="lbRetagBtn" onclick="retagFromLb()" style="margin:0;">Re-tag</button>
+    <button class="lb-board-btn" id="lbCensorBtn" onclick="autoCensorFromLb()" style="margin:0;">Auto-censor</button>
     <button class="lb-board-btn" id="lbRemoveBoardBtn" onclick="removeFromBoardLb()" style="margin:0;display:none;">Remove from board</button>
     <button class="lb-delete-btn" onclick="deleteFromLb()" style="margin-left:auto;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;background:none;border:1px solid #fdd;color:#c00;padding:6px 14px;cursor:pointer;font-family:var(--f);transition:all 0.15s;" onmouseover="this.style.background='#fdd'" onmouseout="this.style.background='none'">Delete photo</button>
   </div>
@@ -516,6 +517,8 @@ nav {
     </div>
     <button class="modal-save" onclick="saveSettings()">Save</button>
     <button class="modal-save" onclick="closeSettings(); bulkRetag();" style="margin-top:8px;background:transparent;color:var(--ink);border:1px solid var(--faint);">Re-tag unknown photos</button>
+    <button class="modal-save" id="auditCensorBtn" onclick="startCensorAudit()" style="margin-top:8px;background:transparent;color:var(--ink);border:1px solid var(--faint);">Audit sensitive content</button>
+    <div id="auditCensorStatus" style="font-size:11px;color:var(--muted);margin-top:8px;min-height:16px;font-style:italic;"></div>
     <div class="modal-status" id="settingsStatus"></div>
   </div>
 </div>
@@ -2774,6 +2777,128 @@ function initSortSwipe() {
   card.addEventListener('mousedown', onStart);
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onEnd);
+}
+
+// ── AUTO-CENSOR ──────────────────────────────────────────────────────────────
+async function detectSensitiveAreas(postId) {
+  var geminiKey = getGeminiKey();
+  if (!geminiKey) { alert('Add a Gemini API key in Settings to use auto-censor.'); return null; }
+  var post = getAllPosts().find(function(p) { return p.id === postId; });
+  if (!post || !post.image) return null;
+  // Fetch image as base64
+  var imgUrl = post.image.split('?')[0]; // strip cache buster for fetch
+  var b64, mimeType;
+  try {
+    var resp = await fetch(imgUrl);
+    var blob = await resp.blob();
+    mimeType = blob.type || 'image/jpeg';
+    b64 = await new Promise(function(res, rej) {
+      var r = new FileReader();
+      r.onload = function() { res(r.result.split(',')[1]); };
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+  } catch(e) { alert('Could not fetch image for analysis.'); return null; }
+
+  var prompt = `Analyse this image for sensitive content (nudity, explicit sexual content, graphic violence).
+If sensitive areas exist, return bounding boxes covering them as percentages of image dimensions.
+Return ONLY raw JSON, no markdown:
+{"is_sensitive": true/false, "boxes": [{"x": left%, "y": top%, "w": width%, "h": height%}]}
+If not sensitive, return: {"is_sensitive": false, "boxes": []}
+Be conservative — only flag genuinely explicit content, not suggestive or artistic nudity in a fashion context.`;
+
+  try {
+    var res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + geminiKey, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: b64 } }] }],
+        generationConfig: { temperature: 0.1, maxOutputTokens: 512 }
+      })
+    });
+    var data = await res.json();
+    if (!res.ok) { console.error('Gemini censor error', data); return null; }
+    var txt = ((data.candidates || [])[0]?.content?.parts?.[0]?.text || '');
+    txt = txt.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/\s*```$/,'').trim();
+    var m = txt.match(/\{[\s\S]*\}/);
+    if (m) return JSON.parse(m[0]);
+  } catch(e) { console.warn('detectSensitiveAreas error', e); }
+  return null;
+}
+
+async function autoCensorFromLb() {
+  if (!currentId) return;
+  var btn = document.getElementById('lbCensorBtn');
+  btn.textContent = 'Analysing…';
+  btn.disabled = true;
+  var result = await detectSensitiveAreas(currentId);
+  btn.textContent = 'Auto-censor';
+  btn.disabled = false;
+  if (!result) return;
+  if (!result.is_sensitive || !result.boxes || !result.boxes.length) {
+    alert('No sensitive content detected in this image.');
+    return;
+  }
+  // Preview boxes on the lightbox image
+  var wrap = document.getElementById('lbImgWrap');
+  var previews = [];
+  result.boxes.forEach(function(box) {
+    var el = document.createElement('div');
+    el.className = 'lb-censor';
+    el.style.cssText = 'position:absolute;left:'+box.x+'%;top:'+box.y+'%;width:'+box.w+'%;height:'+box.h+'%;background:#000;z-index:5;border:2px dashed #f00;';
+    wrap.appendChild(el);
+    previews.push(el);
+  });
+  if (!confirm('Sensitive area(s) detected and shown in red outline. Save these censor boxes?')) {
+    previews.forEach(function(el) { el.remove(); });
+    // Restore normal censor display
+    openLb(currentId);
+    return;
+  }
+  previews.forEach(function(el) { el.style.border = 'none'; });
+  // Save to posts.json
+  var post = SEED_POSTS.find(function(p) { return p.id === currentId; });
+  if (post) {
+    post.censor_boxes = result.boxes;
+    syncPostsToGitHub().then(function(r) {
+      if (!r.ok) alert('Censor boxes saved locally but failed to sync: ' + r.reason);
+    });
+  }
+}
+
+async function startCensorAudit() {
+  var geminiKey = getGeminiKey();
+  if (!geminiKey) { alert('Add a Gemini API key in Settings first.'); return; }
+  var statusEl = document.getElementById('auditCensorStatus');
+  var btn = document.getElementById('auditCensorBtn');
+  // Only posts with no censor_boxes yet
+  var toAudit = SEED_POSTS.filter(function(p) { return !p.censor_boxes || !p.censor_boxes.length; });
+  if (!toAudit.length) { statusEl.textContent = 'All posts already audited.'; return; }
+  btn.disabled = true;
+  var flagged = 0, done = 0, total = toAudit.length;
+  statusEl.textContent = 'Starting audit of ' + total + ' posts…';
+  // Process in batches of 3 to avoid rate limits
+  for (var i = 0; i < toAudit.length; i += 3) {
+    var batch = toAudit.slice(i, i + 3);
+    await Promise.all(batch.map(async function(post) {
+      var result = await detectSensitiveAreas(post.id);
+      done++;
+      if (result && result.is_sensitive && result.boxes && result.boxes.length) {
+        post.censor_boxes = result.boxes;
+        flagged++;
+      }
+      statusEl.textContent = 'Auditing… ' + done + ' / ' + total + ' (' + flagged + ' flagged)';
+    }));
+    // Save incrementally every batch
+    if (flagged > 0) {
+      await syncPostsToGitHub();
+    }
+    // Small pause between batches
+    await new Promise(function(r) { setTimeout(r, 800); });
+  }
+  btn.disabled = false;
+  statusEl.textContent = 'Audit complete. ' + flagged + ' post(s) flagged and saved.';
+  renderGrid();
 }
 
 // Lock screen
