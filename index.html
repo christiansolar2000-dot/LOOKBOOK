@@ -477,8 +477,12 @@ nav {
 .confirm-btn-delete:hover { background:#900; }
 
 /* SORT PAGE card drag */
-#sortCard { user-select:none; transition: transform 0.15s, opacity 0.15s; }
+#sortCard { user-select:none; transition: transform 0.15s, opacity 0.15s; will-change: transform, opacity; }
 #sortCard.dragging { transition: none; }
+.sort-filter-pill { font-size:10px; letter-spacing:0.12em; text-transform:uppercase; font-family:var(--f); background:#fff; border:1px solid var(--faint); color:var(--muted); padding:6px 14px; cursor:pointer; border-radius:999px; }
+.sort-filter-pill.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+.card img { opacity:0; transition:opacity 0.25s ease; }
+.card img.ld { opacity:1; }
 
 
 /* CROP PREVIEW */
@@ -520,6 +524,7 @@ nav {
   <button class="nav-tab active" id="tabExplore" onclick="showExplore()">Explore</button>
   <button class="nav-tab" id="tabBoards" onclick="showBoards()">Boards</button>
   <button class="nav-tab" id="tabSort" onclick="showSort()">Sort</button>
+  <button class="nav-tab" id="tabDeleted" onclick="showDeleted()">Deleted</button>
   <button class="nav-add" onclick="openUpload()">+ Add</button>
 </nav>
 
@@ -581,6 +586,11 @@ nav {
 
 
 <div id="sortPage" style="display:none; position:fixed; inset:0; background:#fff; z-index:350; flex-direction:column; align-items:center; justify-content:center;">
+  <div style="position:absolute; top:12px; left:0; right:0; display:flex; justify-content:center; gap:8px; align-items:center;">
+    <button id="sortFilterUnsorted" class="sort-filter-pill" onclick="setSortFilter('unsorted')">Unsorted</button>
+    <button id="sortFilterAll" class="sort-filter-pill" onclick="setSortFilter('all')">All</button>
+    <button onclick="reshuffleSort()" style="background:none;border:none;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:#bbb;cursor:pointer;font-family:var(--f);padding:6px 8px;" title="Rebuild and reshuffle the queue">Reshuffle</button>
+  </div>
   <div id="sortCard" style="position:relative; width:min(380px,90vw); touch-action:none;">
     <div id="sortImgWrap" style="position:relative; width:100%; border-radius:0; overflow:hidden; background:#f2f2f2;">
       <img id="sortImg" src="" alt="" style="width:100%; display:block; max-height:60vh; object-fit:contain;">
@@ -600,6 +610,14 @@ nav {
   </div>
   <div id="sortDoneMsg" style="display:none;padding:60px 20px;text-align:center;color:#999;font-size:13px;">All caught up — nothing left to sort.</div>
   <button onclick="showExplore()" style="position:absolute;top:14px;left:16px;background:none;border:none;font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:#999;cursor:pointer;font-family:var(--f);padding:4px 0;">← Back</button>
+</div>
+
+<!-- RECENTLY DELETED -->
+<div id="deletedPage" style="display:none; padding:20px 24px 60px; max-width:1200px; margin:0 auto;">
+  <div style="font-size:11px; letter-spacing:0.18em; text-transform:uppercase; color:var(--ink); margin-bottom:4px;">Recently Deleted</div>
+  <div style="font-size:11px; color:var(--muted); font-style:italic; margin-bottom:20px;">Photos stay here for 7 days, then are removed permanently.</div>
+  <div id="deletedGrid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:16px;"></div>
+  <div id="deletedEmpty" style="display:none; padding:60px 0; text-align:center; color:var(--muted); font-size:13px; font-style:italic;">Nothing in the trash.</div>
 </div>
 
 <!-- LIGHTBOX -->
@@ -739,6 +757,16 @@ nav {
 </div>
 
 <!-- SETTINGS -->
+<!-- DUPLICATE REVIEW -->
+<div class="modal-bg" id="dupeModal">
+  <div class="modal" style="max-width:520px;max-height:85vh;overflow-y:auto;">
+    <div class="modal-title">Duplicates</div>
+    <button class="modal-close" onclick="document.getElementById('dupeModal').classList.remove('open')">×</button>
+    <p class="setting-note" id="dupeModalNote"></p>
+    <div id="dupePairList"></div>
+  </div>
+</div>
+
 <div class="modal-bg" id="settingsModal">
   <div class="modal" id="settingsModalInner">
     <div class="modal-title">Settings</div>
@@ -757,6 +785,8 @@ nav {
     <button class="modal-save" onclick="saveSettings()">Save</button>
     <button class="modal-save" onclick="closeSettings(); bulkRetag();" style="margin-top:8px;background:transparent;color:var(--ink);border:1px solid var(--faint);">Re-tag unknown photos</button>
     <button class="modal-save" id="auditCensorBtn" onclick="startCensorAudit()" style="margin-top:8px;background:transparent;color:var(--ink);border:1px solid var(--faint);">Audit sensitive content</button>
+    <button class="modal-save" id="dupeScanBtn" onclick="startDupeScan()" style="margin-top:8px;background:transparent;color:var(--ink);border:1px solid var(--faint);">Find duplicates</button>
+    <div id="dupeScanStatus" style="font-size:11px;color:var(--muted);margin-top:8px;min-height:16px;font-style:italic;"></div>
     <div id="auditCensorStatus" style="font-size:11px;color:var(--muted);margin-top:8px;min-height:16px;font-style:italic;"></div>
     <div class="modal-status" id="settingsStatus"></div>
   </div>
@@ -897,7 +927,23 @@ function getAllPosts() {
 // silently.
 function lbDelay(ms) { return new Promise(function(res) { setTimeout(res, ms); }); }
 
-async function syncPostsToGitHub(_attempt) {
+// ── GLOBAL WRITE QUEUE ──────────────────────────────────────────────────────
+// Every GitHub write (posts, boards, canvas, trash, image deletes) goes through
+// this single chain so no two writers ever race each other advancing the branch.
+// Concurrent writers were the source of the "is at X but expected Y" HTTP 409s:
+// e.g. sortDelete used to fire posts+boards+image writes simultaneously, and the
+// idle censor audit can write posts.json at any moment. Retries inside each
+// writer call the _raw function directly, so a retry never re-enters the queue.
+var _ghWriteChain = Promise.resolve();
+function ghSerialize(fn) {
+  var run = _ghWriteChain.then(function() { return fn(); });
+  _ghWriteChain = run.then(function(){}, function(){}); // never let the chain break
+  return run;
+}
+function ghBackoff(attempt) { return 400 * (attempt + 1) + Math.random() * 400; }
+
+function syncPostsToGitHub() { return ghSerialize(function() { return _syncPostsRaw(0); }); }
+async function _syncPostsRaw(_attempt) {
   _attempt = _attempt || 0;
   // Best-effort local cache — must never throw, or a full localStorage quota
   // would abort the sync before the GitHub PUT below (the "changes revert" bug).
@@ -925,8 +971,8 @@ async function syncPostsToGitHub(_attempt) {
       // SEED_POSTS already has the intended change and re-fetching only
       // updates the sha we're writing against, not the content.
       if (putRes.status === 409 && _attempt < 3) {
-        await lbDelay(400 * (_attempt + 1));
-        return syncPostsToGitHub(_attempt + 1);
+        await lbDelay(ghBackoff(_attempt));
+        return _syncPostsRaw(_attempt + 1);
       }
       var errBody = await putRes.json().catch(function(){ return {}; });
       throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
@@ -1017,7 +1063,8 @@ async function loadAllBoards() {
   boardsReady = true;
 }
 
-async function syncBoardsToGitHub(_attempt) {
+function syncBoardsToGitHub() { return ghSerialize(function() { return _syncBoardsRaw(0); }); }
+async function _syncBoardsRaw(_attempt) {
   _attempt = _attempt || 0;
   localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
   var token = getGhToken();
@@ -1045,8 +1092,8 @@ async function syncBoardsToGitHub(_attempt) {
     });
     if (!putRes.ok) {
       if (putRes.status === 409 && _attempt < 3) {
-        await lbDelay(400 * (_attempt + 1));
-        return syncBoardsToGitHub(_attempt + 1);
+        await lbDelay(ghBackoff(_attempt));
+        return _syncBoardsRaw(_attempt + 1);
       }
       var errBody = await putRes.json().catch(function(){ return {}; });
       throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
@@ -1067,6 +1114,171 @@ function saveBoards(b) {
   });
 }
 
+// ─── RECENTLY DELETED (TRASH) ────────────────────────────────────────────────
+// Deleting a photo no longer destroys it. Instead the full post object (plus
+// which boards it was in) moves into trash.json for 7 days, restorable from
+// the Deleted tab. The image file stays at images/{id}.jpg the whole time —
+// so trash thumbnails still render and restore is a pure JSON operation. The
+// file itself is only deleted when the trash entry expires or is purged.
+var TRASH = [];
+var trashReady = false;
+var TRASH_TTL_MS = 7 * 24 * 3600 * 1000;
+
+async function loadTrashFromGitHub() {
+  try {
+    var cached = localStorage.getItem('lb_trash_cache');
+    if (cached) TRASH = JSON.parse(cached);
+  } catch(e) {}
+  try {
+    var token = getGhToken();
+    var headers = { 'Accept': 'application/vnd.github.v3+json' };
+    if (token) headers['Authorization'] = 'token ' + token;
+    var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/trash.json', { headers: headers, cache: 'no-store' });
+    if (res.status === 404) { TRASH = []; trashReady = true; return; }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    var meta = await res.json();
+    var jsonStr;
+    if (meta.content && meta.content.trim()) {
+      jsonStr = decodeURIComponent(escape(atob(meta.content.replace(/\n/g, ''))));
+    } else {
+      var blobRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/git/blobs/' + meta.sha, { headers: headers, cache: 'no-store' });
+      var blob = await blobRes.json();
+      jsonStr = decodeURIComponent(escape(atob(blob.content.replace(/\n/g, ''))));
+    }
+    var data = JSON.parse(jsonStr);
+    if (Array.isArray(data)) TRASH = data;
+    try { localStorage.setItem('lb_trash_cache', JSON.stringify(TRASH)); } catch(e) {}
+  } catch(e) {
+    console.warn('Could not fetch trash.json — using local cache', e);
+  }
+  trashReady = true;
+}
+
+function syncTrashToGitHub() { return ghSerialize(function() { return _syncTrashRaw(0); }); }
+async function _syncTrashRaw(_attempt) {
+  _attempt = _attempt || 0;
+  try { localStorage.setItem('lb_trash_cache', JSON.stringify(TRASH)); } catch(e) {}
+  var token = getGhToken();
+  if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
+  try {
+    var getRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/trash.json', {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
+      cache: 'no-store'
+    });
+    var sha = null;
+    if (getRes.ok) { var meta = await getRes.json(); sha = meta.sha; }
+    else if (getRes.status !== 404) throw new Error('Could not read current trash.json (HTTP ' + getRes.status + ')');
+    var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(TRASH))));
+    var payload = { message: 'Update trash.json', content: b64 };
+    if (sha) payload.sha = sha;
+    var putRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/trash.json', {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!putRes.ok) {
+      if (putRes.status === 409 && _attempt < 3) {
+        await lbDelay(ghBackoff(_attempt));
+        return _syncTrashRaw(_attempt + 1);
+      }
+      var errBody = await putRes.json().catch(function(){ return {}; });
+      throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
+    }
+    return { ok: true };
+  } catch(e) {
+    console.error('trash.json sync failed', e);
+    return { ok: false, reason: e.message };
+  }
+}
+
+// The one true delete path. Removes the post from the collection and all
+// boards, records it in trash, and syncs everything in strict serial order.
+function trashPost(postId) {
+  var post = SEED_POSTS.find(function(p) { return p.id === postId; });
+  if (!post) return Promise.resolve({ ok: false, reason: 'Post not found.' });
+  var boardIds = getBoards().filter(function(b) { return (b.postIds || []).indexOf(postId) >= 0; }).map(function(b) { return b.id; });
+  SEED_POSTS = SEED_POSTS.filter(function(p) { return p.id !== postId; });
+  var boards = getBoards();
+  boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== postId; }); });
+  BOARDS = boards;
+  deleteCrop(postId);
+  TRASH.push({ post: post, boardIds: boardIds, deletedAt: Date.now() });
+  try { localStorage.setItem('lb_trash_cache', JSON.stringify(TRASH)); } catch(e) {}
+  // Serialized writes: posts.json (source of truth) → boards.json → trash.json.
+  // The image file is intentionally NOT touched — it lives on until the trash
+  // entry expires, keeping the Deleted tab thumbnail alive and restore trivial.
+  return syncPostsToGitHub().then(function(r) {
+    if (!r.ok) throw new Error('posts.json did not save: ' + r.reason);
+    return syncBoardsToGitHub();
+  }).then(function(r) {
+    if (!r.ok) throw new Error('boards.json did not save: ' + r.reason);
+    return syncTrashToGitHub();
+  }).then(function(r) {
+    if (!r.ok) throw new Error('trash.json did not save: ' + r.reason);
+    return { ok: true };
+  }).catch(function(e) {
+    return { ok: false, reason: e.message };
+  });
+}
+
+function restoreFromTrash(postId) {
+  var idx = TRASH.findIndex(function(t) { return t.post && t.post.id === postId; });
+  if (idx < 0) return Promise.resolve({ ok: false, reason: 'Not in trash.' });
+  var entry = TRASH[idx];
+  TRASH.splice(idx, 1);
+  if (!SEED_POSTS.some(function(p) { return p.id === postId; })) SEED_POSTS.push(entry.post);
+  var boards = getBoards();
+  (entry.boardIds || []).forEach(function(bid) {
+    var b = boards.find(function(x) { return x.id === bid; });
+    if (b) { b.postIds = b.postIds || []; if (b.postIds.indexOf(postId) < 0) b.postIds.push(postId); }
+  });
+  BOARDS = boards;
+  return syncPostsToGitHub().then(function(r) {
+    if (!r.ok) throw new Error('posts.json did not save: ' + r.reason);
+    return syncBoardsToGitHub();
+  }).then(function(r) {
+    if (!r.ok) throw new Error('boards.json did not save: ' + r.reason);
+    return syncTrashToGitHub();
+  }).then(function(r) {
+    if (!r.ok) throw new Error('trash.json did not save: ' + r.reason);
+    return { ok: true };
+  }).catch(function(e) {
+    return { ok: false, reason: e.message };
+  });
+}
+
+// Permanently remove one trash entry: entry first, then its image file.
+function deleteForeverFromTrash(postId) {
+  var idx = TRASH.findIndex(function(t) { return t.post && t.post.id === postId; });
+  if (idx < 0) return Promise.resolve({ ok: false, reason: 'Not in trash.' });
+  var entry = TRASH[idx];
+  TRASH.splice(idx, 1);
+  return syncTrashToGitHub().then(function(r) {
+    if (!r.ok) throw new Error('trash.json did not save: ' + r.reason);
+    return deleteImageFileFromGitHub(entry.post);
+  }).then(function() {
+    return { ok: true };
+  }).catch(function(e) {
+    return { ok: false, reason: e.message };
+  });
+}
+
+// Run once at boot: expire anything older than 7 days. Image files for expired
+// entries are deleted (best-effort), then trash.json is written once.
+function purgeExpiredTrash() {
+  var now = Date.now();
+  var expired = TRASH.filter(function(t) { return now - (t.deletedAt || 0) > TRASH_TTL_MS; });
+  if (!expired.length) return Promise.resolve();
+  TRASH = TRASH.filter(function(t) { return now - (t.deletedAt || 0) <= TRASH_TTL_MS; });
+  var chain = Promise.resolve();
+  expired.forEach(function(t) {
+    chain = chain.then(function() { return deleteImageFileFromGitHub(t.post); });
+  });
+  return chain.then(function() { return syncTrashToGitHub(); }).then(function() {
+    if (document.getElementById('deletedPage').style.display !== 'none') renderDeleted();
+  });
+}
+
 // ─── CANVAS STATE ────────────────────────────────────────────────────────────
 var CANVAS_DATA = {}; // { boardId: { items: [...] } }
 var currentBoardMode = 'gallery'; // 'gallery' | 'canvas'
@@ -1079,6 +1291,7 @@ function detectViewOnly() {
   if (params.has('board')) {
     VIEW_ONLY = !getGhToken();
     document.getElementById('viewOnlyBanner').style.display = VIEW_ONLY ? 'block' : 'none';
+    if (VIEW_ONLY) document.getElementById('tabDeleted').style.display = 'none';
   }
 }
 
@@ -1109,7 +1322,8 @@ async function loadCanvasFromGitHub() {
   }
 }
 
-async function syncCanvasToGitHub(_attempt) {
+function syncCanvasToGitHub() { return ghSerialize(function() { return _syncCanvasRaw(0); }); }
+async function _syncCanvasRaw(_attempt) {
   _attempt = _attempt || 0;
   if (VIEW_ONLY) return { ok: false, reason: 'View-only mode' };
   localStorage.setItem('lb_canvas_cache', JSON.stringify(CANVAS_DATA));
@@ -1133,8 +1347,8 @@ async function syncCanvasToGitHub(_attempt) {
     });
     if (!putRes.ok) {
       if (putRes.status === 409 && _attempt < 3) {
-        await new Promise(function(r) { setTimeout(r, 400 * (_attempt + 1)); });
-        return syncCanvasToGitHub(_attempt + 1);
+        await lbDelay(ghBackoff(_attempt));
+        return _syncCanvasRaw(_attempt + 1);
       }
       var err = await putRes.json().catch(function(){ return {}; });
       throw new Error('GitHub rejected canvas.json (HTTP ' + putRes.status + '): ' + (err.message || 'unknown'));
@@ -1732,33 +1946,82 @@ function exportCanvasAsPng() {
 })();
 
 // NAV
-function showExplore() {
-  document.getElementById('explorePage').style.display = '';
-  document.getElementById('boardsPage').style.display = 'none';
-  document.getElementById('sortPage').style.display = 'none';
-  document.getElementById('tabExplore').classList.add('active');
-  document.getElementById('tabBoards').classList.remove('active');
-  document.getElementById('tabSort').classList.remove('active');
+function setActivePage(page) {
+  document.getElementById('explorePage').style.display = page === 'explore' ? '' : 'none';
+  document.getElementById('boardsPage').style.display = page === 'boards' ? 'block' : 'none';
+  document.getElementById('sortPage').style.display = page === 'sort' ? 'flex' : 'none';
+  document.getElementById('deletedPage').style.display = page === 'deleted' ? 'block' : 'none';
+  document.getElementById('tabExplore').classList.toggle('active', page === 'explore');
+  document.getElementById('tabBoards').classList.toggle('active', page === 'boards');
+  document.getElementById('tabSort').classList.toggle('active', page === 'sort');
+  document.getElementById('tabDeleted').classList.toggle('active', page === 'deleted');
 }
+function showExplore() { setActivePage('explore'); }
 function showBoards() {
-  document.getElementById('explorePage').style.display = 'none';
-  document.getElementById('boardsPage').style.display = 'block';
-  document.getElementById('sortPage').style.display = 'none';
+  setActivePage('boards');
   document.getElementById('boardDetail').style.display = 'none';
   document.getElementById('boardsGrid').style.display = '';
-  document.getElementById('tabExplore').classList.remove('active');
-  document.getElementById('tabBoards').classList.add('active');
-  document.getElementById('tabSort').classList.remove('active');
   renderBoards();
 }
 function showSort() {
-  document.getElementById('explorePage').style.display = 'none';
-  document.getElementById('boardsPage').style.display = 'none';
-  document.getElementById('sortPage').style.display = 'flex';
-  document.getElementById('tabExplore').classList.remove('active');
-  document.getElementById('tabBoards').classList.remove('active');
-  document.getElementById('tabSort').classList.add('active');
+  setActivePage('sort');
   initSort();
+}
+function showDeleted() {
+  setActivePage('deleted');
+  renderDeleted();
+}
+function renderDeleted() {
+  var grid = document.getElementById('deletedGrid');
+  var empty = document.getElementById('deletedEmpty');
+  grid.innerHTML = '';
+  var items = TRASH.slice().sort(function(a, b) { return (b.deletedAt || 0) - (a.deletedAt || 0); });
+  empty.style.display = items.length ? 'none' : 'block';
+  var now = Date.now();
+  items.forEach(function(t) {
+    if (!t.post) return;
+    var daysLeft = Math.max(0, Math.ceil((TRASH_TTL_MS - (now - (t.deletedAt || now))) / 86400000));
+    var cell = document.createElement('div');
+    cell.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+    var img = document.createElement('img');
+    img.src = bustUrl(t.post);
+    img.alt = '';
+    img.loading = 'lazy';
+    img.style.cssText = 'width:100%;aspect-ratio:1;object-fit:cover;background:var(--chip);display:block;';
+    cell.appendChild(img);
+    var meta = document.createElement('div');
+    meta.style.cssText = 'font-size:10px;color:var(--muted);letter-spacing:0.04em;';
+    meta.textContent = '@' + (t.post.username || '') + ' · ' + daysLeft + 'd left';
+    cell.appendChild(meta);
+    var row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:6px;';
+    var restoreBtn = document.createElement('button');
+    restoreBtn.textContent = 'Restore';
+    restoreBtn.style.cssText = 'flex:1;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;background:var(--ink);color:#fff;border:none;padding:6px 0;cursor:pointer;font-family:var(--f);';
+    restoreBtn.onclick = function() {
+      restoreBtn.disabled = true;
+      restoreFromTrash(t.post.id).then(function(r) {
+        if (!r.ok) alert('Restore did not sync permanently:\n\n' + r.reason);
+        renderDeleted();
+        renderGrid();
+      });
+    };
+    var killBtn = document.createElement('button');
+    killBtn.textContent = 'Delete';
+    killBtn.style.cssText = 'flex:1;font-size:10px;letter-spacing:0.08em;text-transform:uppercase;background:#fff;color:#c00;border:1px solid #fdd;padding:6px 0;cursor:pointer;font-family:var(--f);';
+    killBtn.onclick = function() {
+      if (!confirm('Permanently delete this photo now? This cannot be undone.')) return;
+      killBtn.disabled = true;
+      deleteForeverFromTrash(t.post.id).then(function(r) {
+        if (!r.ok) alert('Delete did not sync permanently:\n\n' + r.reason);
+        renderDeleted();
+      });
+    };
+    row.appendChild(restoreBtn);
+    row.appendChild(killBtn);
+    cell.appendChild(row);
+    grid.appendChild(cell);
+  });
 }
 
 // PILLS
@@ -1878,6 +2141,10 @@ function makeCard(post, onClick) {
   img.src = getCrop(post.id) || bustUrl(post);
   img.alt = '';
   img.loading = 'lazy';
+  // Fade each image in on load instead of letting it pop — the pop across a
+  // whole grid of lazy images read as the page "flashing" on open.
+  if (img.complete && img.naturalWidth) img.classList.add('ld');
+  else img.onload = function() { img.classList.add('ld'); };
   card.appendChild(img);
   if (post.censor_boxes && post.censor_boxes.length) {
     post.censor_boxes.forEach(function(box) {
@@ -2156,6 +2423,54 @@ function openBoardPicker(opts) {
   document.getElementById('boardPickerModal').classList.add('open');
 }
 
+// Score every board against a post: tag overlap between the post's tags and
+// the tags of images already in the board (exact tag match 3pts, shared word
+// 1pt — same scheme as the Related strip), normalised so huge boards don't
+// win on volume, plus a bonus for boards added-to recently.
+var _SUGGEST_STOP = new Set(['a','an','the','and','or','of','in','on','at','to','with','from','by','for','is','as','into','over','under','up','out','off','dark','light','bright','deep','soft','hard','long','short','small','large','big','little','high','low','flat','round','full','open','close','closed','left','right','side','back','front','top','bottom']);
+function _tagWordsOf(tags) {
+  var words = new Set();
+  (tags || []).forEach(function(t) {
+    String(t).toLowerCase().split(/[\s\-_\/]+/).forEach(function(w) {
+      if (w.length > 2 && !_SUGGEST_STOP.has(w)) words.add(w);
+    });
+  });
+  return words;
+}
+function suggestBoardsForPost(postId, topN) {
+  var post = getAllPosts().find(function(p) { return p.id === postId; });
+  if (!post) return [];
+  var pTags = (post.visual_tags || []).concat(post.hashtags || []).map(function(t) { return String(t).toLowerCase(); });
+  var pWords = _tagWordsOf((post.visual_tags || []).concat(post.hashtags || []));
+  if (!pTags.length && !pWords.size) return [];
+  var byId = {};
+  getAllPosts().forEach(function(p) { byId[p.id] = p; });
+  var now = Date.now();
+  var WEEK = 7 * 24 * 3600 * 1000;
+  var scored = getBoards().map(function(b) {
+    var ids = (b.postIds || []);
+    if (!ids.length) return { board: b, score: 0 };
+    var sample = ids.slice(-60); // most recent members are most representative
+    var raw = 0;
+    sample.forEach(function(pid) {
+      var m = byId[pid];
+      if (!m || m.id === postId) return;
+      var mTags = (m.visual_tags || []).concat(m.hashtags || []).map(function(t) { return String(t).toLowerCase(); });
+      pTags.forEach(function(t) { if (mTags.indexOf(t) >= 0) raw += 3; });
+      var mWords = _tagWordsOf((m.visual_tags || []).concat(m.hashtags || []));
+      pWords.forEach(function(w) { if (mWords.has(w)) raw += 1; });
+    });
+    var score = raw / Math.sqrt(sample.length);
+    if (b.lastAddedAt) {
+      var age = now - b.lastAddedAt;
+      if (age < WEEK && score > 0) score *= 1 + 0.5 * (1 - age / WEEK);
+    }
+    return { board: b, score: score };
+  }).filter(function(x) { return x.score > 0; });
+  scored.sort(function(a, b) { return b.score - a.score; });
+  return scored.slice(0, topN || 3).map(function(x) { return x.board; });
+}
+
 function renderBoardPickList() {
   var list = document.getElementById('boardPickList');
   var boards = getBoards();
@@ -2163,6 +2478,35 @@ function renderBoardPickList() {
   if (!boards.length) {
     list.innerHTML = '<div style="padding:16px 0;color:#999;font-size:12px;">No boards yet.</div>';
     return;
+  }
+  // Suggested boards for this photo, rendered as tappable chips up top.
+  if (pickerCtx) {
+    var sugg = suggestBoardsForPost(pickerCtx.postId, 3);
+    if (sugg.length) {
+      var wrap = document.createElement('div');
+      wrap.style.cssText = 'margin-bottom:12px;';
+      var lbl = document.createElement('div');
+      lbl.style.cssText = 'font-size:9px;letter-spacing:0.14em;text-transform:uppercase;color:#bbb;margin-bottom:6px;';
+      lbl.textContent = 'Suggested';
+      wrap.appendChild(lbl);
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+      sugg.forEach(function(b) {
+        var chip = document.createElement('button');
+        var on = !!pickerCtx.selected[b.id];
+        chip.textContent = b.name;
+        chip.style.cssText = 'font-size:11px;font-family:var(--f);padding:6px 12px;border-radius:999px;cursor:pointer;border:1px solid ' + (on ? 'var(--ink)' : 'var(--faint)') + ';background:' + (on ? 'var(--ink)' : '#fff') + ';color:' + (on ? '#fff' : 'var(--ink)') + ';';
+        chip.onclick = function() {
+          if (!pickerCtx) return;
+          if (pickerCtx.selected[b.id]) delete pickerCtx.selected[b.id];
+          else pickerCtx.selected[b.id] = true;
+          renderBoardPickList(); // keep chips and list checkmarks in sync
+        };
+        row.appendChild(chip);
+      });
+      wrap.appendChild(row);
+      list.appendChild(wrap);
+    }
   }
   boards.forEach(function(board) {
     var item = document.createElement('div');
@@ -2189,7 +2533,7 @@ function boardPickerDone() {
   boards.forEach(function(b) {
     var has = (b.postIds || []).indexOf(ctx.postId) >= 0;
     var want = !!ctx.selected[b.id];
-    if (want && !has) { b.postIds = b.postIds || []; b.postIds.push(ctx.postId); added++; }
+    if (want && !has) { b.postIds = b.postIds || []; b.postIds.push(ctx.postId); b.lastAddedAt = Date.now(); added++; }
     else if (!want && has) { b.postIds = b.postIds.filter(function(pid) { return pid !== ctx.postId; }); removed++; }
   });
   if (added || removed) {
@@ -3151,7 +3495,8 @@ function removeFromBoardLb() {
 // photo no longer leaves an orphaned file behind (the 553-vs-514 gap). Failure
 // here is non-fatal — an orphan file is invisible in the app and was the old
 // status quo anyway — so it's logged, never alerted. Retries once on 409.
-function deleteImageFileFromGitHub(post, _attempt) {
+function deleteImageFileFromGitHub(post) { return ghSerialize(function() { return _deleteImageFileRaw(post, 0); }); }
+function _deleteImageFileRaw(post, _attempt) {
   _attempt = _attempt || 0;
   var token = getGhToken();
   if (!token || !post || !post.image) return Promise.resolve();
@@ -3175,7 +3520,7 @@ function deleteImageFileFromGitHub(post, _attempt) {
   }).then(function(delRes) {
     if (delRes && !delRes.ok) {
       if (delRes.status === 409 && _attempt < 3) {
-        return lbDelay(400 * (_attempt + 1)).then(function() { return deleteImageFileFromGitHub(post, _attempt + 1); });
+        return lbDelay(ghBackoff(_attempt)).then(function() { return _deleteImageFileRaw(post, _attempt + 1); });
       }
       throw new Error('delete failed (HTTP ' + delRes.status + ')');
     }
@@ -3191,37 +3536,15 @@ function deleteCrop(id) {
   } catch(e) {}
 }
 
-// DELETE from lightbox (collection delete)
+// DELETE from lightbox — moves to Recently Deleted (restorable for 7 days)
 function deleteFromLb() {
   if (!currentId) return;
   var id = currentId;
-  document.getElementById('confirmMsg').textContent = 'Delete this photo?';
-  document.getElementById('confirmSub').textContent = 'It will be removed from all boards and your collection, permanently, on every device. This cannot be undone.';
-  document.getElementById('confirmOkBtn').textContent = 'Delete';
-  document.getElementById('confirmOkBtn').onclick = function() {
-    closeConfirm();
-    closeLb();
-    var post = SEED_POSTS.find(function(p) { return p.id === id; });
-    SEED_POSTS = SEED_POSTS.filter(function(p) { return p.id !== id; });
-    var boards = getBoards();
-    boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== id; }); });
-    BOARDS = boards;
-    deleteCrop(id);
-    renderGrid();
-    // Serialized writes — one at a time, each confirmed before the next.
-    // Order matters: posts.json first (the app's source of truth). If a later
-    // step fails, worst case is an invisible orphan image, never a broken thumbnail.
-    syncPostsToGitHub().then(function(r) {
-      if (!r.ok) throw new Error('posts.json did not save: ' + r.reason);
-      return syncBoardsToGitHub();
-    }).then(function(r) {
-      if (!r.ok) throw new Error('boards.json did not save: ' + r.reason);
-      return deleteImageFileFromGitHub(post);
-    }).catch(function(e) {
-      alert('DELETION DID NOT FULLY SYNC TO GITHUB.\n\n' + e.message + '\n\nThe photo is gone from this screen only — it WILL come back on reload and on other devices. Try deleting it again, or check your GitHub token in Settings.');
-    });
-  };
-  document.getElementById('confirmModal').classList.add('open');
+  closeLb();
+  trashPost(id).then(function(r) {
+    if (!r.ok) alert('This photo was moved to Recently Deleted here, but the change did not sync permanently:\n\n' + r.reason + '\n\nIt may come back on reload or other devices. Try again, or check your GitHub token in Settings.');
+  });
+  renderGrid();
 }
 
 // RECROP from lightbox
@@ -3552,15 +3875,36 @@ function bulkRetag() {
 var sortQueue = [];
 var sortIndex = 0;
 
-function initSort() {
+// Sort filter: 'unsorted' (default) = only photos not yet in any board; 'all' = everything.
+function getSortFilter() { return localStorage.getItem('lb_sort_filter') || 'unsorted'; }
+function setSortFilter(f) {
+  if (f === getSortFilter()) return;
+  localStorage.setItem('lb_sort_filter', f);
+  localStorage.removeItem('lb_sort_state'); // filter change = fresh queue
+  initSort();
+}
+function reshuffleSort() {
+  localStorage.removeItem('lb_sort_state');
+  initSort();
+}
+function saveSortState() {
+  try {
+    localStorage.setItem('lb_sort_state', JSON.stringify({
+      filter: getSortFilter(),
+      ids: sortQueue.map(function(p) { return p.id; }),
+      index: sortIndex
+    }));
+  } catch(e) {}
+}
+function buildSortQueue() {
   var all = getAllPosts();
+  var boarded = {};
+  getBoards().forEach(function(b) { (b.postIds || []).forEach(function(pid) { boarded[pid] = true; }); });
+  var pool = getSortFilter() === 'unsorted' ? all.filter(function(p) { return !boarded[p.id]; }) : all;
   var log = getLog();
-  // Bucket 1: never interacted (no log entry at all)
-  var unsorted = all.filter(function(p) { return !log[p.id]; });
-  // Bucket 2: opened but never boarded
-  var light = all.filter(function(p) { return log[p.id] && !log[p.id].board; });
-  // Bucket 3: already boarded
-  var heavy = all.filter(function(p) { return log[p.id] && log[p.id].board; });
+  var unsorted = pool.filter(function(p) { return !boarded[p.id] && !log[p.id]; });
+  var light = pool.filter(function(p) { return !boarded[p.id] && log[p.id]; });
+  var heavy = pool.filter(function(p) { return boarded[p.id]; });
   function shuffle(arr) {
     for (var i = arr.length - 1; i > 0; i--) {
       var j = Math.floor(Math.random() * (i + 1));
@@ -3568,12 +3912,62 @@ function initSort() {
     }
     return arr;
   }
-  sortQueue = shuffle(unsorted).concat(shuffle(light)).concat(shuffle(heavy));
-  sortIndex = 0;
+  return shuffle(unsorted).concat(shuffle(light)).concat(shuffle(heavy));
+}
+function initSort() {
+  // Resume exactly where the last session left off — same queue order, same
+  // position — as long as the filter matches. Posts deleted since are dropped.
+  var resumed = false;
+  try {
+    var saved = JSON.parse(localStorage.getItem('lb_sort_state') || 'null');
+    if (saved && saved.filter === getSortFilter() && Array.isArray(saved.ids) && saved.ids.length) {
+      var byId = {};
+      getAllPosts().forEach(function(p) { byId[p.id] = p; });
+      var boarded = {};
+      if (getSortFilter() === 'unsorted') {
+        getBoards().forEach(function(b) { (b.postIds || []).forEach(function(pid) { boarded[pid] = true; }); });
+      }
+      var q = [];
+      var idx = saved.index || 0;
+      saved.ids.forEach(function(pid, i) {
+        var p = byId[pid];
+        if (!p) { if (i < (saved.index || 0)) idx--; return; } // deleted since
+        q.push(p);
+      });
+      idx = Math.max(0, Math.min(idx, q.length));
+      if (q.length && idx < q.length) {
+        sortQueue = q;
+        sortIndex = idx;
+        resumed = true;
+      }
+    }
+  } catch(e) {}
+  if (!resumed) {
+    sortQueue = buildSortQueue();
+    sortIndex = 0;
+  }
+  saveSortState();
+  updateSortFilterPills();
   showSortCard();
   initSortSwipe();
 }
+function updateSortFilterPills() {
+  var f = getSortFilter();
+  document.getElementById('sortFilterUnsorted').classList.toggle('active', f === 'unsorted');
+  document.getElementById('sortFilterAll').classList.toggle('active', f === 'all');
+}
 
+var _sortPreloaded = {};
+function preloadSortImages() {
+  // Warm the next few images so advancing feels instant.
+  for (var i = sortIndex + 1; i <= sortIndex + 3 && i < sortQueue.length; i++) {
+    var p = sortQueue[i];
+    if (!p || !p.image || _sortPreloaded[p.id]) continue;
+    var im = new Image();
+    im.src = bustUrl(p);
+    _sortPreloaded[p.id] = true;
+  }
+}
 function showSortCard() {
   var done = document.getElementById('sortDoneMsg');
   var card = document.getElementById('sortCard');
@@ -3585,25 +3979,28 @@ function showSortCard() {
   }
   done.style.display = 'none';
   card.style.display = '';
+  card.style.transition = 'none';
   card.style.transform = 'none';
   card.style.opacity = '1';
   var post = sortQueue[sortIndex];
-  document.getElementById('sortImg').src = post.image || '';
+  document.getElementById('sortImg').src = bustUrl(post);
   document.getElementById('sortUser').textContent = '@' + post.username;
   document.getElementById('sortCaption').textContent = post.caption || '';
   document.getElementById('sortProgress').textContent = (sortIndex + 1) + ' / ' + sortQueue.length;
+  preloadSortImages();
 }
 
 function sortAnimateAndAdvance(dir, cb) {
   var card = document.getElementById('sortCard');
-  card.style.transition = 'transform 0.28s ease, opacity 0.28s';
-  card.style.transform = 'translateX(' + (dir * 120) + 'px) rotate(' + (dir * 8) + 'deg)';
+  card.style.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out';
+  card.style.transform = 'translateX(' + (dir * 140) + 'px) rotate(' + (dir * 8) + 'deg)';
   card.style.opacity = '0';
   setTimeout(function() {
     sortIndex++;
+    saveSortState();
     if (cb) cb();
     showSortCard();
-  }, 280);
+  }, 150);
 }
 
 function sortSkip() { sortAnimateAndAdvance(-1, null); }
@@ -3629,69 +4026,74 @@ function sortDelete() {
   var post = sortQueue[sortIndex];
   if (!post) return;
   var postId = post.id;
-  document.getElementById('confirmMsg').textContent = 'Delete this photo?';
-  document.getElementById('confirmSub').textContent = 'It will be removed from all boards and your collection, permanently, on every device.';
-  document.getElementById('confirmOkBtn').textContent = 'Delete';
-  document.getElementById('confirmOkBtn').onclick = function() {
-    closeConfirm();
-    var post = SEED_POSTS.find(function(p) { return p.id === postId; });
-    SEED_POSTS = SEED_POSTS.filter(function(p) { return p.id !== postId; });
-    var boards = getBoards();
-    boards.forEach(function(b) { b.postIds = (b.postIds || []).filter(function(pid) { return pid !== postId; }); });
-    saveBoards(boards);
-    deleteCrop(postId);
-    sortQueue.splice(sortIndex, 1);
-    showSortCard();
-    deleteImageFileFromGitHub(post);
-    syncPostsToGitHub().then(function(r) {
-      if (!r.ok) alert('This photo was removed here, but the deletion did not sync permanently:\n\n' + r.reason);
-    });
-  };
-  document.getElementById('confirmModal').classList.add('open');
+  // No confirmation — deletes go to Recently Deleted and are restorable for
+  // 7 days from the Deleted tab, so an instant delete is now safe.
+  sortQueue.splice(sortIndex, 1);
+  saveSortState();
+  showSortCard();
+  trashPost(postId).then(function(r) {
+    if (!r.ok) alert('This photo was moved to Recently Deleted here, but the change did not sync permanently:\n\n' + r.reason);
+  });
 }
 
-// Swipe gesture for sort mode
+// Swipe gesture for sort mode. Transforms are applied inside a
+// requestAnimationFrame so the card tracks the finger at display refresh rate
+// without layout thrash, and dy is tracked directly (the old code re-parsed it
+// out of the transform string on release, which was both fragile and the cause
+// of janky end-of-swipe behaviour).
+var _sortSwipeBound = false;
 function initSortSwipe() {
+  if (_sortSwipeBound) return; // bind once — initSort runs on every tab visit
+  _sortSwipeBound = true;
   var card = document.getElementById('sortCard');
-  var startX = 0, startY = 0, dx = 0;
-  var dragging = false;
+  var startX = 0, startY = 0, dx = 0, dy = 0;
+  var dragging = false, vertical = false, raf = 0;
+  function applyDrag() {
+    raf = 0;
+    if (!dragging) return;
+    if (vertical) {
+      card.style.transform = 'translateY(' + dy + 'px) scale(' + Math.max(0.92, 1 - dy / 600) + ')';
+      card.style.opacity = String(Math.max(0.4, 1 - dy / 220));
+    } else {
+      card.style.transform = 'translateX(' + dx + 'px) rotate(' + (dx * 0.06) + 'deg)';
+      card.style.opacity = String(Math.max(0.4, 1 - Math.abs(dx) / 320));
+    }
+  }
   function onStart(e) {
     if (document.getElementById('sortPage').style.display === 'none') return;
     var t = e.touches ? e.touches[0] : e;
-    startX = t.clientX; startY = t.clientY; dx = 0; dragging = true;
+    startX = t.clientX; startY = t.clientY; dx = 0; dy = 0;
+    dragging = true; vertical = false;
     card.classList.add('dragging');
   }
   function onMove(e) {
     if (!dragging) return;
     var t = e.touches ? e.touches[0] : e;
     dx = t.clientX - startX;
-    var dy = t.clientY - startY;
-    // Swipe down gesture — track vertically, suppress horizontal handling
-    if (dy > 20 && dy > Math.abs(dx)) {
-      e.preventDefault();
-      card.style.transform = 'translateY(' + dy + 'px) scale(' + Math.max(0.92, 1 - dy / 600) + ')';
-      card.style.opacity = String(Math.max(0.4, 1 - dy / 200));
+    dy = t.clientY - startY;
+    if (!vertical && dy > 20 && dy > Math.abs(dx)) vertical = true;
+    if (!vertical && Math.abs(dy) > Math.abs(dx) + 30 && dy < 0) {
+      // Clearly scrolling up, not swiping — release the card.
+      dragging = false;
+      card.style.transform = 'none'; card.style.opacity = '1';
       return;
     }
-    if (Math.abs(dy) > Math.abs(dx) + 10) { dragging = false; card.style.transform = 'none'; card.style.opacity = '1'; return; }
     e.preventDefault();
-    var rot = dx * 0.06;
-    card.style.transform = 'translateX(' + dx + 'px) rotate(' + rot + 'deg)';
-    card.style.opacity = String(Math.max(0.4, 1 - Math.abs(dx) / 300));
+    if (!raf) raf = requestAnimationFrame(applyDrag);
   }
   function onEnd() {
     if (!dragging) return;
     dragging = false;
     card.classList.remove('dragging');
-    var t_dy = 0;
-    // Recalculate dy from last known positions isn't available here — use card transform
-    var transform = card.style.transform;
-    var dyMatch = transform.match(/translateY\(([0-9.]+)px\)/);
-    var dy = dyMatch ? parseFloat(dyMatch[1]) : 0;
-    if (dy > 80) { card.style.transition = 'transform 0.28s ease, opacity 0.28s'; card.style.transform = 'translateY(160px)'; card.style.opacity = '0'; setTimeout(function() { sortDelete(); }, 200); }
-    else if (dx > 80) { sortSave(); }
-    else if (dx < -80) { sortSkip(); }
-    else { card.style.transition = 'transform 0.2s, opacity 0.2s'; card.style.transform = 'none'; card.style.opacity = '1'; }
+    if (vertical && dy > 80) {
+      card.style.transition = 'transform 0.15s ease-out, opacity 0.15s ease-out';
+      card.style.transform = 'translateY(180px)';
+      card.style.opacity = '0';
+      setTimeout(function() { sortDelete(); }, 130);
+    }
+    else if (!vertical && dx > 80) { sortSave(); }
+    else if (!vertical && dx < -80) { sortSkip(); }
+    else { card.style.transition = 'transform 0.18s, opacity 0.18s'; card.style.transform = 'none'; card.style.opacity = '1'; }
   }
   card.addEventListener('touchstart', onStart, { passive: true });
   card.addEventListener('touchmove', onMove, { passive: false });
@@ -3837,14 +4239,20 @@ async function startCensorAudit() {
       if (cachedBoards) BOARDS = JSON.parse(cachedBoards);
     } catch(e) {}
     buildPills(); renderGrid();
-    // ...then fetch the canonical, up-to-date lists from GitHub and re-render.
-    // This is what makes every device converge on the same data, the same
-    // way posts 1-120 always did — now true for every post, and for boards.
-    loadAllPosts().then(function() { buildPills(); renderGrid(); });
+    // ...then fetch the canonical, up-to-date lists from GitHub and re-render
+    // ONLY if something actually changed. Unconditionally re-rendering after
+    // the fetch was what made the home grid visibly flash and re-pop its
+    // images on every open even when the data was identical to the cache.
+    function postsSig() { return SEED_POSTS.length + ':' + SEED_POSTS.map(function(p) { return p.id; }).join(','); }
+    var sigBefore = postsSig();
+    loadAllPosts().then(function() {
+      if (postsSig() !== sigBefore) { buildPills(); renderGrid(); }
+    });
     loadAllBoards().then(function() {
       if (document.getElementById('boardsPage').style.display !== 'none') renderBoards();
     });
     loadCanvasFromGitHub();
+    loadTrashFromGitHub().then(function() { purgeExpiredTrash(); });
     initCanvasViewport();
     detectViewOnly();
   }
@@ -3875,6 +4283,168 @@ async function startCensorAudit() {
 
 function closeSettings() {
   document.getElementById('settingsModal').classList.remove('open');
+}
+
+// ── DUPLICATE FINDER ─────────────────────────────────────────────────────────
+// Perceptual (difference) hash of every image, computed in-browser on a 9x8
+// canvas, cached per-id in localStorage so re-scans only hash new photos.
+// Pairs within a small hamming distance are shown for review; merging keeps
+// one post, unions the tags and board memberships of both, and sends the
+// other copy to Recently Deleted (so a wrong merge is recoverable for 7 days).
+function _dhashFromImg(img) {
+  var c = document.createElement('canvas');
+  c.width = 9; c.height = 8;
+  var ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0, 9, 8);
+  var d = ctx.getImageData(0, 0, 9, 8).data;
+  function luma(x, y) { var i = (y * 9 + x) * 4; return d[i] * 0.299 + d[i+1] * 0.587 + d[i+2] * 0.114; }
+  var bits = '';
+  for (var y = 0; y < 8; y++) for (var x = 0; x < 8; x++) bits += luma(x, y) > luma(x + 1, y) ? '1' : '0';
+  return bits;
+}
+function _hamming(a, b) {
+  var n = 0;
+  for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) n++;
+  return n;
+}
+function _getHashCache() { try { return JSON.parse(localStorage.getItem('lb_img_hashes') || '{}'); } catch(e) { return {}; } }
+function _getDupeIgnores() { try { return JSON.parse(localStorage.getItem('lb_dupe_ignore') || '{}'); } catch(e) { return {}; } }
+
+async function startDupeScan() {
+  var btn = document.getElementById('dupeScanBtn');
+  var status = document.getElementById('dupeScanStatus');
+  btn.disabled = true;
+  var posts = getAllPosts().filter(function(p) { return p.image; });
+  var cache = _getHashCache();
+  var todo = posts.filter(function(p) { return !cache[p.id]; });
+  var done = 0, failed = 0;
+  status.textContent = todo.length ? ('Hashing ' + todo.length + ' images…') : 'Comparing…';
+  async function hashOne(p) {
+    return new Promise(function(res) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function() {
+        try { cache[p.id] = _dhashFromImg(img); } catch(e) { failed++; }
+        res();
+      };
+      img.onerror = function() { failed++; res(); };
+      img.src = bustUrl(p);
+    });
+  }
+  for (var i = 0; i < todo.length; i += 6) {
+    await Promise.all(todo.slice(i, i + 6).map(hashOne));
+    done = Math.min(i + 6, todo.length);
+    status.textContent = 'Hashing ' + done + ' / ' + todo.length + (failed ? ' (' + failed + ' failed)' : '');
+    try { localStorage.setItem('lb_img_hashes', JSON.stringify(cache)); } catch(e) {}
+  }
+  // Pairwise compare
+  var ignores = _getDupeIgnores();
+  var withHash = posts.filter(function(p) { return cache[p.id]; });
+  var pairs = [];
+  for (var a = 0; a < withHash.length; a++) {
+    for (var b = a + 1; b < withHash.length; b++) {
+      var pa = withHash[a], pb = withHash[b];
+      var key = pa.id < pb.id ? pa.id + '|' + pb.id : pb.id + '|' + pa.id;
+      if (ignores[key]) continue;
+      var dist = _hamming(cache[pa.id], cache[pb.id]);
+      if (dist <= 6) pairs.push({ a: pa.id, b: pb.id, dist: dist });
+    }
+  }
+  pairs.sort(function(x, y) { return x.dist - y.dist; });
+  btn.disabled = false;
+  status.textContent = pairs.length ? (pairs.length + ' possible duplicate pair(s) found.') : 'No duplicates found.';
+  if (pairs.length) {
+    document.getElementById('settingsModal').classList.remove('open');
+    openDupeModal(pairs);
+  }
+}
+
+var _dupePairs = [];
+function openDupeModal(pairs) {
+  _dupePairs = pairs;
+  document.getElementById('dupeModalNote').textContent = 'Merging keeps one photo, combines tags and boards from both, and moves the other to Recently Deleted.';
+  renderDupePairs();
+  document.getElementById('dupeModal').classList.add('open');
+}
+function renderDupePairs() {
+  var list = document.getElementById('dupePairList');
+  list.innerHTML = '';
+  var live = _dupePairs.filter(function(pr) {
+    return SEED_POSTS.some(function(p) { return p.id === pr.a; }) && SEED_POSTS.some(function(p) { return p.id === pr.b; });
+  });
+  if (!live.length) {
+    list.innerHTML = '<div style="padding:20px 0;color:#999;font-size:12px;font-style:italic;">All pairs handled.</div>';
+    return;
+  }
+  live.slice(0, 30).forEach(function(pr) {
+    var pa = SEED_POSTS.find(function(p) { return p.id === pr.a; });
+    var pb = SEED_POSTS.find(function(p) { return p.id === pr.b; });
+    var row = document.createElement('div');
+    row.style.cssText = 'border-top:1px solid var(--faint);padding:14px 0;';
+    row.innerHTML =
+      '<div style="display:flex;gap:10px;margin-bottom:8px;">' +
+        '<img src="' + bustUrl(pa) + '" style="width:48%;aspect-ratio:1;object-fit:cover;background:var(--chip);">' +
+        '<img src="' + bustUrl(pb) + '" style="width:48%;aspect-ratio:1;object-fit:cover;background:var(--chip);">' +
+      '</div>' +
+      '<div style="font-size:10px;color:var(--muted);margin-bottom:8px;">#' + pa.id + ' (' + ((pa.visual_tags||[]).length) + ' tags) vs #' + pb.id + ' (' + ((pb.visual_tags||[]).length) + ' tags) — distance ' + pr.dist + '</div>';
+    var btns = document.createElement('div');
+    btns.style.cssText = 'display:flex;gap:6px;';
+    [['Keep left', pr.a, pr.b], ['Keep right', pr.b, pr.a]].forEach(function(cfg) {
+      var btn = document.createElement('button');
+      btn.textContent = cfg[0];
+      btn.style.cssText = 'flex:1;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;background:var(--ink);color:#fff;border:none;padding:8px 0;cursor:pointer;font-family:var(--f);';
+      btn.onclick = function() {
+        row.style.opacity = '0.4';
+        mergeDupePosts(cfg[1], cfg[2]).then(function(r) {
+          if (!r.ok) alert('Merge did not sync permanently:\n\n' + r.reason);
+          renderDupePairs();
+          renderGrid();
+        });
+      };
+      btns.appendChild(btn);
+    });
+    var skip = document.createElement('button');
+    skip.textContent = 'Not a dupe';
+    skip.style.cssText = 'flex:1;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;background:#fff;color:var(--muted);border:1px solid var(--faint);padding:8px 0;cursor:pointer;font-family:var(--f);';
+    skip.onclick = function() {
+      var ig = _getDupeIgnores();
+      var key = pr.a < pr.b ? pr.a + '|' + pr.b : pr.b + '|' + pr.a;
+      ig[key] = 1;
+      try { localStorage.setItem('lb_dupe_ignore', JSON.stringify(ig)); } catch(e) {}
+      _dupePairs = _dupePairs.filter(function(x) { return x !== pr; });
+      renderDupePairs();
+    };
+    btns.appendChild(skip);
+    row.appendChild(btns);
+    list.appendChild(row);
+  });
+}
+
+// Merge tags/boards/notes of dropId into keepId, then trash dropId.
+// One posts.json write covers both the tag merge and the removal, because
+// trashPost syncs the full in-memory SEED_POSTS.
+function mergeDupePosts(keepId, dropId) {
+  var keep = SEED_POSTS.find(function(p) { return p.id === keepId; });
+  var drop = SEED_POSTS.find(function(p) { return p.id === dropId; });
+  if (!keep || !drop) return Promise.resolve({ ok: false, reason: 'Post missing.' });
+  function unionTags(a, b) {
+    var out = [], seen = {};
+    (a || []).concat(b || []).forEach(function(t) {
+      var k = String(t).toLowerCase().trim();
+      if (!k || seen[k]) return;
+      seen[k] = 1; out.push(t);
+    });
+    return out;
+  }
+  keep.visual_tags = unionTags(keep.visual_tags, drop.visual_tags);
+  keep.hashtags = unionTags(keep.hashtags, drop.hashtags);
+  if (drop.notes && drop.notes !== keep.notes) keep.notes = keep.notes ? keep.notes + ' / ' + drop.notes : drop.notes;
+  // Union board memberships: any board holding the duplicate also gets the keeper.
+  getBoards().forEach(function(b) {
+    var ids = b.postIds || [];
+    if (ids.indexOf(dropId) >= 0 && ids.indexOf(keepId) < 0) ids.push(keepId);
+  });
+  return trashPost(dropId); // removes dropId from boards + syncs posts/boards/trash serially
 }
 
 // ── IDLE BACKGROUND CENSOR AUDIT ─────────────────────────────────────────────
