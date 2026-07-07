@@ -962,11 +962,12 @@ function renderGrid() {
   }
 }
 
+function bustUrl(post) { return post.image ? post.image + '?v=' + post.id : ''; }
 function makeCard(post, onClick) {
   var card = document.createElement('div');
   card.className = 'card';
   var img = document.createElement('img');
-  img.src = getCrop(post.id) || post.image || '';
+  img.src = getCrop(post.id) || bustUrl(post);
   img.alt = '';
   img.loading = 'lazy';
   card.appendChild(img);
@@ -1004,7 +1005,7 @@ function openLb(id) {
   logInteraction(id, 'open');
 
   var storedCrop = getCrop(id);
-  var imgSrc = storedCrop || post.image || '';
+  var imgSrc = storedCrop || bustUrl(post);
   document.getElementById('lbImg').src = imgSrc;
   document.querySelectorAll('.lb-censor').forEach(function(el) { el.remove(); });
   if (post.censor_boxes) {
@@ -1060,7 +1061,7 @@ function openLb(id) {
     setSection.style.display = '';
     members.forEach(function(mid) {
       var mp = getAllPosts().find(function(p) { return p.id === mid; });
-      if (mp) setStrip.appendChild(makeThumb(mp.image, function() { openLb(mid); }));
+      if (mp) setStrip.appendChild(makeThumb(bustUrl(mp), function() { openLb(mid); }));
     });
   } else { setSection.style.display = 'none'; }
 
@@ -1071,7 +1072,7 @@ function openLb(id) {
   if (byUser.length) {
     userSection.style.display = '';
     document.getElementById('lbUserLabel').textContent = 'More from @' + post.username;
-    byUser.slice(0, 10).forEach(function(p) { userStrip.appendChild(makeThumb(p.image, function() { openLb(p.id); })); });
+    byUser.slice(0, 10).forEach(function(p) { userStrip.appendChild(makeThumb(bustUrl(p), function() { openLb(p.id); })); });
     var sa = document.getElementById('lbSeeAll');
     sa.textContent = 'View all ' + byUser.length + ' from @' + post.username + ' →';
     sa.onclick = function() { closeLb(); setUser(post.username); };
@@ -1100,7 +1101,7 @@ function openLb(id) {
     if (!related.length) related = allOther.slice(0, 12);
   }
   relatedSection.style.display = '';
-  related.slice(0, 12).forEach(function(p) { relatedStrip.appendChild(makeThumb(p.image, function() { openLb(p.id); })); });
+  related.slice(0, 12).forEach(function(p) { relatedStrip.appendChild(makeThumb(bustUrl(p), function() { openLb(p.id); })); });
 
   // "Remove from board" only appears when this photo was opened while a board
   // is genuinely on screen AND the photo is actually in that board. Checks all
