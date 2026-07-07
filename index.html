@@ -1084,20 +1084,29 @@ function openLb(id) {
   var relatedSection = document.getElementById('lbRelatedSection');
   var relatedStrip = document.getElementById('lbRelatedStrip');
   relatedStrip.innerHTML = '';
+  var STOP = new Set(['a','an','the','and','or','of','in','on','at','to','with','from','by','for','is','as','into','over','under','up','out','off','dark','light','bright','deep','soft','hard','long','short','small','large','big','little','high','low','flat','round','full','open','close','closed','left','right','side','back','front','top','bottom']);
+  function tagWords(tags) {
+    var words = new Set();
+    (tags || []).forEach(function(t) {
+      t.toLowerCase().split(/[\s\-_\/]+/).forEach(function(w) {
+        if (w.length > 2 && !STOP.has(w)) words.add(w);
+      });
+    });
+    return words;
+  }
   var postTags = (post.visual_tags || []).map(function(t) { return t.toLowerCase(); });
+  var postWords = tagWords(post.visual_tags);
   var allOther = getAllPosts().filter(function(p) { return p.id !== id; });
-  var related = allOther.filter(function(p) {
+  var scored = allOther.map(function(p) {
     var pTags = (p.visual_tags || []).map(function(t) { return t.toLowerCase(); });
-    return postTags.some(function(t) { return pTags.indexOf(t) >= 0; });
-  });
-  related.sort(function(a, b) {
-    var aTags = (a.visual_tags || []).map(function(t) { return t.toLowerCase(); });
-    var bTags = (b.visual_tags || []).map(function(t) { return t.toLowerCase(); });
-    var aMatch = postTags.filter(function(t) { return aTags.indexOf(t) >= 0; }).length;
-    var bMatch = postTags.filter(function(t) { return bTags.indexOf(t) >= 0; }).length;
-    return bMatch - aMatch;
-  });
-  // Fallback: if no tag matches at all, show other posts by same user or random selection
+    var pWords = tagWords(p.visual_tags);
+    var score = 0;
+    postTags.forEach(function(t) { if (pTags.indexOf(t) >= 0) score += 3; });
+    postWords.forEach(function(w) { if (pWords.has(w)) score += 1; });
+    return { post: p, score: score };
+  }).filter(function(s) { return s.score > 0; });
+  scored.sort(function(a, b) { return b.score - a.score; });
+  var related = scored.map(function(s) { return s.post; });
   if (!related.length) {
     related = allOther.filter(function(p) { return p.username === post.username; });
     if (!related.length) related = allOther.slice(0, 12);
