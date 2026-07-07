@@ -2951,6 +2951,77 @@ async function startCensorAudit() {
 function closeSettings() {
   document.getElementById('settingsModal').classList.remove('open');
 }
+
+// ── IDLE BACKGROUND CENSOR AUDIT ─────────────────────────────────────────────
+var _idleAuditTimer = null;
+var _idleAuditRunning = false;
+var _lastUserActivity = Date.now();
+var IDLE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
+
+function _resetIdleTimer() {
+  _lastUserActivity = Date.now();
+  if (_idleAuditRunning) {
+    _idleAuditRunning = false; // signal running batch loop to stop
+  }
+  clearTimeout(_idleAuditTimer);
+  _idleAuditTimer = setTimeout(_maybeStartIdleAudit, IDLE_THRESHOLD_MS);
+}
+
+function _maybeStartIdleAudit() {
+  if (!getGeminiKey()) return; // no key, nothing to do
+  if (_idleAuditRunning) return;
+  var toAudit = SEED_POSTS.filter(function(p) { return !p.censor_boxes || !p.censor_boxes.length; });
+  if (!toAudit.length) return;
+  _runIdleAudit(toAudit);
+}
+
+async function _runIdleAudit(toAudit) {
+  _idleAuditRunning = true;
+  var statusEl = document.getElementById('idleAuditStatus');
+  var flagged = 0;
+  for (var i = 0; i < toAudit.length; i += 3) {
+    if (!_idleAuditRunning) break; // user became active
+    var batch = toAudit.slice(i, i + 3);
+    await Promise.all(batch.map(async function(post) {
+      if (!_idleAuditRunning) return;
+      var result = await detectSensitiveAreas(post.id);
+      if (result && result.is_sensitive && result.boxes && result.boxes.length) {
+        post.censor_boxes = result.boxes;
+        flagged++;
+      }
+    }));
+    if (flagged > 0) {
+      await syncPostsToGitHub();
+      flagged = 0;
+    }
+    if (statusEl) statusEl.textContent = 'Background audit: ' + (i + batch.length) + ' / ' + toAudit.length + ' checked';
+    await new Promise(function(r) { setTimeout(r, 1200); });
+  }
+  _idleAuditRunning = false;
+  if (statusEl) statusEl.textContent = '';
+  // Reschedule in case more unaudited posts appear later
+  _idleAuditTimer = setTimeout(_maybeStartIdleAudit, IDLE_THRESHOLD_MS);
+}
+
+// Track user activity
+['touchstart','mousedown','keydown','scroll'].forEach(function(evt) {
+  document.addEventListener(evt, _resetIdleTimer, { passive: true });
+});
+// Pause when tab is hidden, resume when visible
+document.addEventListener('visibilitychange', function() {
+  if (document.hidden) {
+    _idleAuditRunning = false;
+    clearTimeout(_idleAuditTimer);
+  } else {
+    _resetIdleTimer();
+  }
+});
+// Kick off the initial idle countdown after boot
+setTimeout(function() { _idleAuditTimer = setTimeout(_maybeStartIdleAudit, IDLE_THRESHOLD_MS); }, 5000);
 </script>
+
+<!-- Idle audit status indicator -->
+<div id="idleAuditStatus" style="position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-size:10px;color:#999;letter-spacing:0.08em;pointer-events:none;z-index:400;"></div>
+
 </body>
 </html>
