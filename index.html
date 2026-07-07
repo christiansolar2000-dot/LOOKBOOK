@@ -915,8 +915,8 @@ function getWeightedShuffled(posts) {
     var scored = posts.map(function(p) {
       var entry = log[p.id] || {};
       var recency = entry.score ? Math.max(0, 1 - (now - Math.max(entry.open || 0, entry.board || 0)) / ONE_WEEK) : 0;
-      var base = (entry.score || 0) * 0.4 + recency * 0.6;
-      return { id: p.id, weight: base + Math.random() * 0.5 };
+      var activity = Math.min((entry.score || 0) * 0.4 + recency * 0.6, 1);
+      return { id: p.id, weight: activity * 0.25 + Math.random() * 0.75 };
     });
     scored.sort(function(a, b) { return b.weight - a.weight; });
     _sessionOrder = {};
