@@ -483,6 +483,8 @@ nav {
 .sort-filter-pill.active { background:var(--ink); color:#fff; border-color:var(--ink); }
 .card img { opacity:0; transition:opacity 0.25s ease; }
 .card img.ld { opacity:1; }
+/* Reserve space before an image loads so lazy loading works (zero-height images all counted as on-screen). */
+.card img { aspect-ratio: auto 4 / 5; }
 
 
 /* CROP PREVIEW */
@@ -892,6 +894,7 @@ async function loadAllPosts() {
       jsonStr = decodeURIComponent(escape(atob(blob.content.replace(/\n/g, ''))));
     }
     var data = JSON.parse(jsonStr);
+    if (Array.isArray(data)) ghSetBase('posts.json', meta.sha, data, _postKey);
     if (Array.isArray(data) && data.length) {
       SEED_POSTS = data;
       // Cache write is best-effort: posts.json can exceed the ~5MB localStorage
@@ -942,46 +945,102 @@ function ghSerialize(fn) {
 }
 function ghBackoff(attempt) { return 400 * (attempt + 1) + Math.random() * 400; }
 
-function syncPostsToGitHub() { return ghSerialize(function() { return _syncPostsRaw(0); }); }
-async function _syncPostsRaw(_attempt) {
+// ── SAFE WRITES (safety patch 2026-11) ──────────────────────────────────────
+// Every JSON file remembers the version this device last loaded (GH_BASE).
+// Before saving, if GitHub has a newer version (another device saved), the
+// two are merged item by item instead of this device overwriting it:
+// local edits and deletes win, the other device's additions and edits are kept.
+// If this device never loaded the file (failed fetch), saving is refused, so a
+// blank or stale device can never wipe the collection.
+var GH_BASE = {}; // file -> { sha, map: {key: json} }
+function escHtml(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function(c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+function ghDecode(b64) { return decodeURIComponent(escape(atob(String(b64 || '').replace(/\n/g, '')))); }
+function ghMapOf(arr, keyFn) { var m = {}; (arr || []).forEach(function(it) { m[String(keyFn(it))] = JSON.stringify(it); }); return m; }
+function ghSetBase(file, sha, arr, keyFn) { GH_BASE[file] = { sha: sha || null, map: ghMapOf(arr, keyFn) }; }
+function ghMerge3(baseMap, local, remote, keyFn) {
+  var localMap = {}; local.forEach(function(it) { localMap[String(keyFn(it))] = it; });
+  var remoteKeys = {}; var out = [];
+  remote.forEach(function(r) {
+    var k = String(keyFn(r)); remoteKeys[k] = true;
+    if (Object.prototype.hasOwnProperty.call(localMap, k)) {
+      var l = localMap[k];
+      var localUnchanged = (k in baseMap) && JSON.stringify(l) === baseMap[k];
+      out.push(localUnchanged ? r : l);
+    } else if (!(k in baseMap)) {
+      out.push(r); // added on another device
+    } // else: deleted on this device -> drop
+  });
+  local.forEach(function(l) {
+    var k = String(keyFn(l));
+    if (remoteKeys[k]) return;
+    if (!(k in baseMap)) out.push(l); // added on this device
+    else if (JSON.stringify(l) !== baseMap[k]) out.push(l); // edited here, deleted elsewhere: keep
+  });
+  return out;
+}
+async function ghSafeWriteArray(file, getLocal, setLocal, keyFn, _attempt) {
   _attempt = _attempt || 0;
-  // Best-effort local cache — must never throw, or a full localStorage quota
-  // would abort the sync before the GitHub PUT below (the "changes revert" bug).
-  try { localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS)); }
-  catch(e) { try { localStorage.removeItem('lb_posts_cache'); } catch(e2){} }
   var token = getGhToken();
   if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
+  var base = GH_BASE[file];
+  if (!base) return { ok: false, reason: file + ' never loaded from GitHub on this device, so saving is blocked to protect your collection. Reload the app and try again.' };
+  var api = 'https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/' + file;
+  var hdr = { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' };
   try {
-    var getRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', {
-      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
-      cache: 'no-store'
-    });
-    if (!getRes.ok) throw new Error('Could not read current posts.json (HTTP ' + getRes.status + ')');
-    var meta = await getRes.json();
-    var jsonStr = JSON.stringify(SEED_POSTS);
-    var b64 = btoa(unescape(encodeURIComponent(jsonStr)));
-    var putRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/posts.json', {
-      method: 'PUT',
-      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: 'Update posts.json', content: b64, sha: meta.sha })
-    });
+    var getRes = await fetch(api, { headers: hdr, cache: 'no-store' });
+    var sha = null, remote = null;
+    if (getRes.ok) {
+      var meta = await getRes.json(); sha = meta.sha;
+      if (sha !== base.sha) {
+        var txt;
+        if (meta.content && meta.content.trim()) txt = ghDecode(meta.content);
+        else {
+          var bRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/git/blobs/' + sha, { headers: hdr, cache: 'no-store' });
+          if (!bRes.ok) throw new Error('Could not read current ' + file + ' (blob HTTP ' + bRes.status + ')');
+          txt = ghDecode((await bRes.json()).content);
+        }
+        remote = JSON.parse(txt);
+        if (!Array.isArray(remote)) throw new Error(file + ' on GitHub is not a list; not overwriting.');
+      }
+    } else if (getRes.status !== 404) {
+      throw new Error('Could not read current ' + file + ' (HTTP ' + getRes.status + ')');
+    }
+    var local = getLocal() || [];
+    var next = remote ? ghMerge3(base.map, local, remote, keyFn) : local;
+    // Shrink guard: never let one save drop more than half of a sizeable file.
+    var before = remote ? remote.length : Object.keys(base.map).length;
+    if (before >= 10 && next.length < before * 0.5) {
+      return { ok: false, reason: 'Blocked: this save would shrink ' + file + ' from ' + before + ' to ' + next.length + ' items. Nothing was changed on GitHub.' };
+    }
+    if (remote) setLocal(next);
+    var payload = { message: 'Update ' + file, content: btoa(unescape(encodeURIComponent(JSON.stringify(next)))) };
+    if (sha) payload.sha = sha;
+    var putRes = await fetch(api, { method: 'PUT', headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (!putRes.ok) {
-      // sha conflict (409) means someone else wrote in between our GET and
-      // PUT — safe to just retry once with a fresh sha, since our in-memory
-      // SEED_POSTS already has the intended change and re-fetching only
-      // updates the sha we're writing against, not the content.
       if (putRes.status === 409 && _attempt < 3) {
         await lbDelay(ghBackoff(_attempt));
-        return _syncPostsRaw(_attempt + 1);
+        return ghSafeWriteArray(file, getLocal, setLocal, keyFn, _attempt + 1);
       }
       var errBody = await putRes.json().catch(function(){ return {}; });
       throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
     }
-    return { ok: true };
+    var putJson = await putRes.json().catch(function(){ return {}; });
+    ghSetBase(file, putJson.content && putJson.content.sha, next, keyFn);
+    return { ok: true, merged: !!remote };
   } catch(e) {
-    console.error('posts.json sync failed', e);
+    console.error(file + ' sync failed', e);
     return { ok: false, reason: e.message };
   }
+}
+function _postKey(p) { return p.id; }
+function _boardKey(b) { return b.id; }
+function _trashKey(t) { return t.post ? t.post.id : t.deletedAt; }
+
+function syncPostsToGitHub() { return ghSerialize(function() { return _syncPostsRaw(0); }); }
+async function _syncPostsRaw(_attempt) {
+  try { localStorage.setItem('lb_posts_cache', JSON.stringify(SEED_POSTS)); }
+  catch(e) { try { localStorage.removeItem('lb_posts_cache'); } catch(e2){} }
+  return ghSafeWriteArray('posts.json', function() { return SEED_POSTS; }, function(v) { SEED_POSTS = v; try { localStorage.setItem('lb_posts_cache', JSON.stringify(v)); } catch(e){} }, _postKey);
 }
 function getCrops() { try { return JSON.parse(localStorage.getItem('lb_crops') || '{}'); } catch(e) { return {}; } }
 function saveCrop(id, dataUrl) {
@@ -1032,6 +1091,9 @@ async function loadAllBoards() {
         jsonStr = decodeURIComponent(escape(atob(bBlob.content.replace(/\n/g, ''))));
       }
       remoteData = JSON.parse(jsonStr);
+      if (Array.isArray(remoteData)) ghSetBase('boards.json', meta.sha, remoteData, _boardKey);
+    } else if (res.status === 404) {
+      ghSetBase('boards.json', null, [], _boardKey);
     }
     // Treat "doesn't exist" and "exists but empty" the same way for migration
     // purposes — an empty remote is functionally un-synced from the user's
@@ -1065,44 +1127,8 @@ async function loadAllBoards() {
 
 function syncBoardsToGitHub() { return ghSerialize(function() { return _syncBoardsRaw(0); }); }
 async function _syncBoardsRaw(_attempt) {
-  _attempt = _attempt || 0;
-  localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS));
-  var token = getGhToken();
-  if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
-  try {
-    var getRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/boards.json', {
-      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
-      cache: 'no-store'
-    });
-    var sha = null;
-    if (getRes.ok) {
-      var meta = await getRes.json();
-      sha = meta.sha;
-    } else if (getRes.status !== 404) {
-      throw new Error('Could not read current boards.json (HTTP ' + getRes.status + ')');
-    }
-    var jsonStr = JSON.stringify(BOARDS);
-    var b64 = btoa(unescape(encodeURIComponent(jsonStr)));
-    var payload = { message: 'Update boards.json', content: b64 };
-    if (sha) payload.sha = sha;
-    var putRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/boards.json', {
-      method: 'PUT',
-      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!putRes.ok) {
-      if (putRes.status === 409 && _attempt < 3) {
-        await lbDelay(ghBackoff(_attempt));
-        return _syncBoardsRaw(_attempt + 1);
-      }
-      var errBody = await putRes.json().catch(function(){ return {}; });
-      throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
-    }
-    return { ok: true };
-  } catch(e) {
-    console.error('boards.json sync failed', e);
-    return { ok: false, reason: e.message };
-  }
+  try { localStorage.setItem('lb_boards_cache', JSON.stringify(BOARDS)); } catch(e) {}
+  return ghSafeWriteArray('boards.json', function() { return BOARDS; }, function(v) { BOARDS = v; try { localStorage.setItem('lb_boards_cache', JSON.stringify(v)); } catch(e){} }, _boardKey);
 }
 
 function getBoards() { return BOARDS; }
@@ -1134,7 +1160,7 @@ async function loadTrashFromGitHub() {
     var headers = { 'Accept': 'application/vnd.github.v3+json' };
     if (token) headers['Authorization'] = 'token ' + token;
     var res = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/trash.json', { headers: headers, cache: 'no-store' });
-    if (res.status === 404) { TRASH = []; trashReady = true; return; }
+    if (res.status === 404) { TRASH = []; ghSetBase('trash.json', null, [], _trashKey); trashReady = true; return; }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var meta = await res.json();
     var jsonStr;
@@ -1146,7 +1172,7 @@ async function loadTrashFromGitHub() {
       jsonStr = decodeURIComponent(escape(atob(blob.content.replace(/\n/g, ''))));
     }
     var data = JSON.parse(jsonStr);
-    if (Array.isArray(data)) TRASH = data;
+    if (Array.isArray(data)) { TRASH = data; ghSetBase('trash.json', meta.sha, data, _trashKey); }
     try { localStorage.setItem('lb_trash_cache', JSON.stringify(TRASH)); } catch(e) {}
   } catch(e) {
     console.warn('Could not fetch trash.json — using local cache', e);
@@ -1156,39 +1182,8 @@ async function loadTrashFromGitHub() {
 
 function syncTrashToGitHub() { return ghSerialize(function() { return _syncTrashRaw(0); }); }
 async function _syncTrashRaw(_attempt) {
-  _attempt = _attempt || 0;
   try { localStorage.setItem('lb_trash_cache', JSON.stringify(TRASH)); } catch(e) {}
-  var token = getGhToken();
-  if (!token) return { ok: false, reason: 'No GitHub token set (Settings) — this change is only saved on this device.' };
-  try {
-    var getRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/trash.json', {
-      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' },
-      cache: 'no-store'
-    });
-    var sha = null;
-    if (getRes.ok) { var meta = await getRes.json(); sha = meta.sha; }
-    else if (getRes.status !== 404) throw new Error('Could not read current trash.json (HTTP ' + getRes.status + ')');
-    var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(TRASH))));
-    var payload = { message: 'Update trash.json', content: b64 };
-    if (sha) payload.sha = sha;
-    var putRes = await fetch('https://api.github.com/repos/' + GH_USER + '/' + GH_REPO + '/contents/trash.json', {
-      method: 'PUT',
-      headers: { 'Authorization': 'token ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!putRes.ok) {
-      if (putRes.status === 409 && _attempt < 3) {
-        await lbDelay(ghBackoff(_attempt));
-        return _syncTrashRaw(_attempt + 1);
-      }
-      var errBody = await putRes.json().catch(function(){ return {}; });
-      throw new Error('GitHub rejected the save (HTTP ' + putRes.status + '): ' + (errBody.message || 'unknown error'));
-    }
-    return { ok: true };
-  } catch(e) {
-    console.error('trash.json sync failed', e);
-    return { ok: false, reason: e.message };
-  }
+  return ghSafeWriteArray('trash.json', function() { return TRASH; }, function(v) { TRASH = v; try { localStorage.setItem('lb_trash_cache', JSON.stringify(v)); } catch(e){} }, _trashKey);
 }
 
 // The one true delete path. Removes the post from the collection and all
@@ -1269,12 +1264,17 @@ function purgeExpiredTrash() {
   var now = Date.now();
   var expired = TRASH.filter(function(t) { return now - (t.deletedAt || 0) > TRASH_TTL_MS; });
   if (!expired.length) return Promise.resolve();
+  var previous = TRASH;
   TRASH = TRASH.filter(function(t) { return now - (t.deletedAt || 0) <= TRASH_TTL_MS; });
-  var chain = Promise.resolve();
-  expired.forEach(function(t) {
-    chain = chain.then(function() { return deleteImageFileFromGitHub(t.post); });
-  });
-  return chain.then(function() { return syncTrashToGitHub(); }).then(function() {
+  // Record the purge first; delete image files only once trash.json saved.
+  return syncTrashToGitHub().then(function(r) {
+    if (!r || !r.ok) { TRASH = previous; return; }
+    var chain = Promise.resolve();
+    expired.forEach(function(t) {
+      chain = chain.then(function() { return deleteImageFileFromGitHub(t.post); });
+    });
+    return chain;
+  }).then(function() {
     if (document.getElementById('deletedPage').style.display !== 'none') renderDeleted();
   });
 }
@@ -1984,9 +1984,9 @@ function renderDeleted() {
     var cell = document.createElement('div');
     cell.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
     var img = document.createElement('img');
-    img.src = bustUrl(t.post);
-    img.alt = '';
     img.loading = 'lazy';
+    img.alt = '';
+    img.src = bustUrl(t.post);
     img.style.cssText = 'width:100%;aspect-ratio:1;object-fit:cover;background:var(--chip);display:block;';
     cell.appendChild(img);
     var meta = document.createElement('div');
@@ -2138,9 +2138,10 @@ function makeCard(post, onClick) {
   var card = document.createElement('div');
   card.className = 'card';
   var img = document.createElement('img');
-  img.src = getCrop(post.id) || bustUrl(post);
-  img.alt = '';
   img.loading = 'lazy';
+  img.decoding = 'async';
+  img.alt = '';
+  img.src = getCrop(post.id) || bustUrl(post);
   // Fade each image in on load instead of letting it pop — the pop across a
   // whole grid of lazy images read as the page "flashing" on open.
   if (img.complete && img.naturalWidth) img.classList.add('ld');
@@ -2348,7 +2349,7 @@ function renderBoards() {
     }
     var info = document.createElement('div');
     info.className = 'board-info';
-    info.innerHTML = '<div class="board-name">' + board.name + '</div><div class="board-count">' + posts.length + ' image' + (posts.length !== 1 ? 's' : '') + '</div>';
+    info.innerHTML = '<div class="board-name">' + escHtml(board.name) + '</div><div class="board-count">' + posts.length + ' image' + (posts.length !== 1 ? 's' : '') + '</div>';
     card.appendChild(info);
     grid.appendChild(card);
   });
@@ -3433,10 +3434,10 @@ function handleFiles(files) {
         var uname = info.username ? '@' + info.username.replace(/^@/,'') : 'unknown';
         var dateStr = info.date || '';
         var hashStr = (info.hashtags || []).slice(0, 5).join(' ');
-        meta.innerHTML = '<div class="scraped-card-header"><span class="scraped-card-user">' + uname + '</span>' +
-          (dateStr ? '<span style="font-size:9px;color:#bbb;margin-left:8px;letter-spacing:0.08em;">' + dateStr + '</span>' : '') + '</div>' +
-          '<div class="scraped-card-caption">' + (info.caption || '') + '</div>' +
-          (hashStr ? '<div style="font-size:9px;color:#aaa;margin-top:3px;">' + hashStr + '</div>' : '');
+        meta.innerHTML = '<div class="scraped-card-header"><span class="scraped-card-user">' + escHtml(uname) + '</span>' +
+          (dateStr ? '<span style="font-size:9px;color:#bbb;margin-left:8px;letter-spacing:0.08em;">' + escHtml(dateStr) + '</span>' : '') + '</div>' +
+          '<div class="scraped-card-caption">' + escHtml(info.caption || '') + '</div>' +
+          (hashStr ? '<div style="font-size:9px;color:#aaa;margin-top:3px;">' + escHtml(hashStr) + '</div>' : '');
         if (info.visual_tags && info.visual_tags.length) {
           var tagDiv = document.createElement('div');
           tagDiv.className = 'scraped-card-tags';
@@ -4228,6 +4229,8 @@ async function startCensorAudit() {
 // Lock screen
 (function() {
   var unlocked = localStorage.getItem('lb_unlocked') === '1';
+  // Shared board links open straight into view-only mode for visitors.
+  if (new URLSearchParams(window.location.search).has('board') && !localStorage.getItem('lb_gh_token')) unlocked = true;
   function boot() {
     // Instant paint from whatever was cached last session...
     try {
